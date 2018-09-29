@@ -25,9 +25,10 @@ build as ${SURROUND_DETECT_ROOT}/README.md
     ./PARK_DETECT
 
 2. run with your model_path and camera device
+    
     ```
-    [Usge]:./park_detect/PARK_DETECT [-h]
-    [-p proto_file] [-m model_file] [-v video_source]
+    - [Usge]:./park_detect/PARK_DETECT [-h]
+    - [-p proto_file] [-m model_file] [-v video_source]
     ```
     ./PARK_DETECT -p deploy.prototxt -m deploy.caffemodel -v /dev/video0
     
