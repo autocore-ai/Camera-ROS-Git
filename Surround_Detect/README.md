@@ -16,12 +16,14 @@ build as ${SURROUND_DETECT_ROOT}/README.md
 
 ## Run
 1.run PARK_DETECT by default
+    ```
     - models are in `models/MobileNetSSD_deploy.prototxt` and`models/MobileNetSSD_deploy.caffemodel`
     - camera device is `/dev/video1`
     ```
     cd ${SURROUND_DETECT_ROOT}/park_detect/
     ./PARK_DETECT
 2. run with your model_path and camera device
+    ```
     [Usge]:./park_detect/PARK_DETECT [-h]
     [-p proto_file] [-m model_file] [-v video_source]
     
