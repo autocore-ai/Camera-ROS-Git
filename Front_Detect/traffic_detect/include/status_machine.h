@@ -1,3 +1,5 @@
+#ifndef STATUS_MACHINE_H_H_H
+#define STATUS_MACHINE_H_H_H
 #include<string.h>
 #include<map>
 struct TFSCODE
@@ -64,4 +66,4 @@ private:
 	int  m_stop_left_clock;
 	int  m_stop_right_clock;
 };
-
+#endif

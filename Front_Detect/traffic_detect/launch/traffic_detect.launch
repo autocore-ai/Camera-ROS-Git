@@ -3,20 +3,26 @@
 	<arg name="proto_file" default="$(find traffic_detect)/models/MobileNetSSD_deploy.prototxt"/>
 	<arg name="model_file" default="$(find traffic_detect)/models/MobileNetSSD_deploy.caffemodel"/>
 	<arg name="model_name" default="mssd_300"/>
-	<arg name="roi_region" default="550,250,300,300"/>
+	<arg name="roi_region" default="550,250,450,450"/>
         <arg name ="refresh_epoch" default = "10"/>
     	<arg name="image_source_topic" default="/usb_cam/image_raw"/>
+        <arg name="cam_cmd_topic" default="/cam/cmd"/>
     	<arg name="status_code_topic" default="/traffic/tls_code"/>
-	<arg name ="image_pub_topic" default="/traffic/image_raw"/>
+	<arg name ="image_raw_topic" default="/traffic/image_raw"/>
+        <arg name="traffic_status_topic" default="/traffic/status"/>
+    	<arg name="traffic_active_topic" default="/traffic/active"/>
 
 	<node pkg="traffic_detect" type="traffic_detect" name="traffic_detect" output="screen">
 	<param name="proto_file" value="$(arg proto_file)"/>
 	<param name="model_file" value="$(arg model_file)"/>
 	<param name="model_name" value="$(arg model_name)"/>
 	<param name ="roi_region" value="$(arg roi_region)"/>
-        <param name ="refresh_epoch" value ="$(arg refresh_epoch)"/>
+        <param name ="refresh_epoch" value ="$(arg refresh_epoch)"/>     
         <param name="image_source_topic" value="$(arg image_source_topic)"/>
+        <param name="cam_cmd_topic" value="$(arg cam_cmd_topic)"/>
 	<param name ="status_code_topic" value="$(arg status_code_topic)"/>
-        <param name="image_pub_topic" value="$(arg image_pub_topic)"/>
+        <param name="image_raw_topic" value="$(arg image_raw_topic)"/>
+        <param name="traffic_status_topic" value="$(arg traffic_status_topic)"/>
+        <param name="traffic_active_topic" value="$(arg traffic_active_topic)"/>
 	</node>
 </launch>
