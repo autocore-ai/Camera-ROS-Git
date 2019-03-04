@@ -36,7 +36,9 @@
 
 #include <ros/ros.h>
 //#include "autoware_msgs/image_obj.h"
-#include "autoreg_msgs/cam_cmd.h"
+#include "dashboard_msgs/cam_cmd.h"
+#include "dashboard_msgs/Cmd.h"
+#include "dashboard_msgs/Proc.h"
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
@@ -105,9 +107,10 @@ int           g_roi_w ;
 int           g_roi_h; 
 
 //dash cmd init params
-int g_node_label = 1;// sleep(0),wakeup(1)
+int g_node_label =0 ;// sleep(0),wakeup(1)
 bool g_win_show = false;
 bool g_node_active = true;
+std_msgs::Header g_img_header;
 pthread_mutex_t g_cmd_mutex;
 
 
@@ -313,13 +316,15 @@ void post_process_ssd(cv::Mat& image_input,float threshold,float* outdata,int nu
 }
 
 // cmd call back
-static void cmd_callback(const autoreg_msgs::cam_cmd &cmd)
+static void cmd_callback(const dashboard_msgs::cam_cmd &cmd)
 {
+    unsigned int func_id = cmd.func_id;
     int cam_id = cmd.cam_id;
     int cmd_id = cmd.cmd_id;    
     //std::cout<<"cam_id: "<<cam_id<<" cmd_id: "<<cmd_id<<std::endl;
     if(cam_id ==1)
     {
+	int ret = cmd_id + 1;
 	int cmd_accept_label =1;
 	if(-1 == cmd_id)
         {   
@@ -331,8 +336,8 @@ static void cmd_callback(const autoreg_msgs::cam_cmd &cmd)
 	    std_msgs::Int32MultiArray val;
             val.data.push_back(cmd_accept_label);
 	    val.data.push_back(cmd_id);
-            pub_traffic_status.publish(val);	  
-	   pthread_mutex_unlock(&g_cmd_mutex);
+            //pub_traffic_status.publish(val);	  
+	    pthread_mutex_unlock(&g_cmd_mutex);
             
 	}
 	else
@@ -352,12 +357,15 @@ static void cmd_callback(const autoreg_msgs::cam_cmd &cmd)
 	    else
 	    {
                 cmd_accept_label = 0;
+		ret = ret -1;
 	        ROS_INFO("EX: unknown cmd!");
 	    }
-	    // publish 
-	    std_msgs::Int32MultiArray val;
-	    val.data.push_back(cmd_accept_label);
-	    val.data.push_back(cmd_id);
+	    // publish
+	    dashboard_msgs::Cmd val;
+	    val.header =g_img_header;
+	    val.func_id =func_id;
+	    val.value = unsigned(ret);
+	    val.retry = 0; 
 	    pub_traffic_status.publish(val);
 	}
     }
@@ -367,7 +375,8 @@ static void image_callback(const sensor_msgs::Image& image_source)
 {
     int wake_up =0 ;
     pthread_mutex_lock(&g_cmd_mutex);  
-    wake_up = g_node_label;  
+    wake_up = g_node_label;
+    g_img_header = image_source.header;  
     pthread_mutex_unlock(&g_cmd_mutex);    
     std::string win_name = "traffic_show";
     
@@ -376,8 +385,8 @@ static void image_callback(const sensor_msgs::Image& image_source)
     {
 	if(!g_win_show) //new win
 	{
-	    /*cv::namedWindow(win_name,WINDOW_AUTOSIZE);
-	    cv::moveWindow(win_name,0,0);*/
+	    cv::namedWindow(win_name,WINDOW_AUTOSIZE);
+	    cv::moveWindow(win_name,0,0);
 	    g_win_show = true;
 	    ROS_INFO("new road window");
 	}
@@ -386,7 +395,7 @@ static void image_callback(const sensor_msgs::Image& image_source)
     {
 	if(g_win_show)
 	{
-	    /*cv::destroyWindow(win_name);*/
+	    cv::destroyWindow(win_name);
 	    g_win_show =false;
 	    ROS_INFO("delete road window");
 	}
@@ -431,8 +440,8 @@ static void image_callback(const sensor_msgs::Image& image_source)
     post_process_ssd(frame_input, show_threshold, outdata, num, frame_show);
     cv::rectangle(frame,cv::Point(g_roi_x,g_roi_y),cv::Point(g_roi_x+g_roi_w,g_roi_y+g_roi_h),cv::Scalar(255,0,0));
     
-    /*cv::imshow(win_name, frame_show);
-    cv::waitKey(15);*/   
+    cv::imshow(win_name, frame_show);
+    cv::waitKey(15);  
 }
 
 // active loop
@@ -446,9 +455,10 @@ void *auto_active_pub(void *arg)
 	wake_up = g_node_label;
 	active_loop = g_node_active;
 	pthread_mutex_unlock(&g_cmd_mutex);
-        
-	std_msgs::Int32 active_msg;
-        active_msg.data = wake_up;
+       
+	dashboard_msgs::Proc active_msg;
+        active_msg.proc_name = "trafficdetect";
+	active_msg.set = unsigned(wake_up);	
         pub_traffic_active.publish(active_msg);
 	//std::cout<<"heart beat\n";
 	sleep(1);
@@ -503,8 +513,8 @@ void init_ros(int argc,char **argv)
     sub_image_raw = node.subscribe(image_source_topic, 1, image_callback);
     sub_cam_cmd = node.subscribe(cam_cmd_topic,1,cmd_callback);
     pub_status_code = node.advertise<std_msgs::UInt8>(status_code_topic,1);
-    pub_traffic_status = node.advertise<std_msgs::Int32MultiArray>(traffic_status_topic,1);
-    pub_traffic_active = node.advertise<std_msgs::Int32>(traffic_active_topic,1);  
+    pub_traffic_status = node.advertise<dashboard_msgs::Cmd>(traffic_status_topic,1);
+    pub_traffic_active = node.advertise<dashboard_msgs::Proc>(traffic_active_topic,1);  
     pub_image_raw = node.advertise<sensor_msgs::Image>(image_raw_topic,1);
 }
 

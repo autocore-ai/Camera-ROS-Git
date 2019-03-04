@@ -39,7 +39,9 @@
 
 #include <ros/ros.h>
 #include "autoreg_msgs/park_obj.h"
-#include "autoreg_msgs/cam_cmd.h"
+#include "dashboard_msgs/cam_cmd.h"
+#include "dashboard_msgs/Cmd.h"
+#include "dashboard_msgs/Proc.h"
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
 #include <std_msgs/Int32MultiArray.h>
@@ -97,6 +99,7 @@ int    seq_counter = 0;
 int g_node_label = 0;// sleep(0),wakeup(1)
 bool g_node_active = true;
 bool g_win_show = false;
+std_msgs::Header g_img_header;
 //bool g_non_hang_label = 0;
 pthread_mutex_t g_cmd_mutex;
 //pthread_mutex_t g_active_mutex;
@@ -858,14 +861,17 @@ void inverse_tf(geometry_msgs::PoseStamped pose_stamp)
 }
 
 //camera module cmd call back
-static void cmd_callback(const autoreg_msgs::cam_cmd &cmd)
-{
+static void cmd_callback(const dashboard_msgs::cam_cmd &cmd)
+{   
+    
+    unsigned int func_id = cmd.func_id;
     int cam_id = cmd.cam_id;
     int cmd_id = cmd.cmd_id;
     //std::cout<<"cam_id: "<<cam_id<<" cmd_id: "<<cmd_id<<std::endl;
     //int cmd_accept_label = 1;
     if(cam_id ==2)
     {
+	int ret = cmd_id + 1;
 	int cmd_accept_label =1;
 	if(-1 == cmd_id)
         {   
@@ -897,12 +903,15 @@ static void cmd_callback(const autoreg_msgs::cam_cmd &cmd)
 	    else
 	    {
                 cmd_accept_label = 0;
+		ret = ret -1;
 	        ROS_INFO("EX: unknown cmd!");
 	    }
 	    // publish 
-	    std_msgs::Int32MultiArray val;
-	    val.data.push_back(cmd_accept_label);
-	    val.data.push_back(cmd_id);
+	    dashboard_msgs::Cmd val;
+	    val.header = g_img_header;
+	    val.func_id =func_id;
+	    val.value = unsigned(ret);
+	    val.retry = 0;
 	    pub_vps_status.publish(val);
 	}
     }  
@@ -924,6 +933,7 @@ static void image_callback(const sensor_msgs::Image& image_source)
     //bool node_active =false;    
     pthread_mutex_lock(&g_cmd_mutex);  
     wake_up = g_node_label;
+    g_img_header = image_source.header;
     pthread_mutex_unlock(&g_cmd_mutex);
     
    std::string win_name = "vps_show";
@@ -932,8 +942,8 @@ static void image_callback(const sensor_msgs::Image& image_source)
     {
 	if(!g_win_show)// new win
 	{
-	    /*cv::namedWindow(win_name,WINDOW_AUTOSIZE);
-	    cv::moveWindow(win_name,0,0);*/
+	    cv::namedWindow(win_name,WINDOW_AUTOSIZE);
+	    cv::moveWindow(win_name,0,0);
 	    g_win_show = true;
 	    ROS_INFO("new vps window!");
 	}
@@ -942,7 +952,7 @@ static void image_callback(const sensor_msgs::Image& image_source)
     {
 	if(g_win_show)//
 	{
-	    /*cv::destroyWindow(win_name);*/
+	    cv::destroyWindow(win_name);
 	    g_win_show = false;
 	    ROS_INFO("delete vps window!");
             gp_atc_tracker->clear();
@@ -1021,8 +1031,8 @@ static void image_callback(const sensor_msgs::Image& image_source)
     roi_msg->header.stamp = ros::Time::now();
     pub_image_raw.publish(roi_msg);
 
-    //cv::imshow(win_name, detect_show);
-    //cv::waitKey(10);
+    cv::imshow(win_name, detect_show);
+    cv::waitKey(10);
    
 }
 
@@ -1064,8 +1074,8 @@ void init_ros(int argc,char **argv)
     
     pub_image_obj = node.advertise<autoreg_msgs::park_obj>(image_object_topic, 1);
     pub_image_raw = node.advertise<sensor_msgs::Image>(image_raw_topic,1);
-    pub_vps_status = node.advertise<std_msgs::Int32MultiArray>(vps_status_topic,1);
-    pub_vps_active = node.advertise<std_msgs::Int32>(vps_active_topic,1);
+    pub_vps_status = node.advertise<dashboard_msgs::Cmd>(vps_status_topic,1);
+    pub_vps_active = node.advertise<dashboard_msgs::Proc>(vps_active_topic,1);
     sub_image_raw = node.subscribe(image_source_topic, 1, image_callback);
     sub_image_pose = node.subscribe(image_pose_topic,1,pose_callback);
     sub_cam_cmd = node.subscribe(cam_cmd_topic,1,cmd_callback);
@@ -1086,8 +1096,9 @@ void *auto_active_pub(void *arg)
 	active_loop = g_node_active;
 	pthread_mutex_unlock(&g_cmd_mutex);
         
-	std_msgs::Int32 active_msg;
-        active_msg.data = wake_up;
+	dashboard_msgs::Proc active_msg;
+        active_msg.proc_name = "vpsdetect";
+	active_msg.set = unsigned(wake_up);
         pub_vps_active.publish(active_msg);
 	//std::cout<<"heart beat\n";
 	sleep(1);

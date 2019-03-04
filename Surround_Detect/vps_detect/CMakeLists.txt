@@ -24,11 +24,13 @@ catkin_package(
         roscpp
         std_msgs
         autoreg_msgs
+	dashboard_msgs
 )
 
 
 find_package(catkin REQUIRED COMPONENTS
   autoreg_msgs
+  dashboard_msgs
   roscpp
   std_msgs
   cv_bridge
