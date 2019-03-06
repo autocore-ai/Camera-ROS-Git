@@ -24,16 +24,18 @@ catkin_package(
 	image_transport
         roscpp
         std_msgs
-        autoware_msgs
+	autoreg_msgs
+	dashboard_msgs
 )
 
 
 find_package(catkin REQUIRED COMPONENTS
-  autoware_msgs
   roscpp
   std_msgs
   cv_bridge
   image_transport
+  autoreg_msgs
+  dashboard_msgs
 )
 find_package(OpenCV REQUIRED)
 

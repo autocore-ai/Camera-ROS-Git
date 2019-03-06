@@ -17,7 +17,6 @@ add_message_files(
 	    park_obj.msg
 	    road_rect.msg
 	    road_obj.msg
-   	    cam_cmd.msg	    
           
 )
 
