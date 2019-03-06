@@ -1,0 +1,27 @@
+<launch>
+	<!-- declare arguments with default values -->
+	<arg name="proto_file" default="$(find vps_detect)/models/MobileNetSSD_deploy.prototxt"/>
+	<arg name="model_file" default="$(find vps_detect)/models/MobileNetSSD_deploy.caffemodel"/>
+	<arg name="model_name" default="mssd_300"/>
+    	<arg name="image_source_topic" default="/usb_scam/image_raw"/>
+    	<arg name="image_pose_topic" default="/gnss_pose"/>
+    	<arg name="cam_cmd_topic" default="/cam/cmd"/>
+    	<arg name="image_object_topic" default="/vps/park_obj"/>
+    	<arg name="image_raw_topic" default="/vps/image_raw"/>
+    	<arg name="vps_status_topic" default="/vps/status"/>
+    	<arg name="vps_active_topic" default="/vps/active"/>
+
+
+	<node pkg="vps_detect" type="vps_detect" name="vps_detect" output="screen">
+	<param name="proto_file" value="$(arg proto_file)"/>
+	<param name="model_file" value="$(arg model_file)"/>
+	<param name="model_name" value="$(arg model_name)"/>
+        <param name="image_source_topic" value="$(arg image_source_topic)"/>
+        <param name="image_pose_topic" value="$(arg image_pose_topic)"/>
+        <param name="cam_cmd_topic" value="$(arg cam_cmd_topic)"/>
+        <param name="image_object_topic" value="$(arg image_object_topic)"/>
+        <param name="image_raw_topic" value="$(arg image_raw_topic)"/>
+        <param name="vps_status_topic" value="$(arg vps_status_topic)"/>
+        <param name="vps_active_topic" value="$(arg vps_active_topic)"/>
+	</node>
+</launch>
