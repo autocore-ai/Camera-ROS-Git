@@ -4,12 +4,12 @@ using namespace std;
 // init status code
 void TFSMachine::init_tls_code()
 {
-    m_tl_status.hash_map[string("goUp")]=0;
-    m_tl_status.hash_map[string("goLeft")]=1;
-    m_tl_status.hash_map[string("goRight")]=2;
-    m_tl_status.hash_map[string("stopUp")]=3;
-    m_tl_status.hash_map[string("stopLeft")]=4;
-    m_tl_status.hash_map[string("stopRight")]=5;
+    m_tl_status.classname2idx[string("goUp")]=0;
+    m_tl_status.classname2idx[string("goLeft")]=1;
+    m_tl_status.classname2idx[string("goRight")]=2;
+    m_tl_status.classname2idx[string("stopUp")]=3;
+    m_tl_status.classname2idx[string("stopLeft")]=4;
+    m_tl_status.classname2idx[string("stopRight")]=5;
     /*
     ----------- default status ----------------
     go_up:0    stop_up:1 \
@@ -25,9 +25,9 @@ void TFSMachine::init_tls_code()
 // get traffic light index 
 int TFSMachine::get_tls_code_idx(string tls_key)
 {
-    if(m_tl_status.hash_map.find(tls_key)!=m_tl_status.hash_map.end())
+    if(m_tl_status.classname2idx.find(tls_key)!=m_tl_status.classname2idx.end())
     {
-        return m_tl_status.hash_map[tls_key];
+        return m_tl_status.classname2idx[tls_key];
     }
     else
         return -1;

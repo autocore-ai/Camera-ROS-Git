@@ -47,6 +47,9 @@
 #include <std_msgs/Int32.h>
 #include <std_msgs/Int32MultiArray.h>
 
+// include imageNet header for image recognition
+#include <jetson-inference/imageNet.h>
+
 #define DEF_PROTO "models/MobileNetSSD_deploy.prototxt"
 #define DEF_MODEL "models/MobileNetSSD_deploy.caffemodel"
 #define DEF_IMAGE "tests/images/ssd_dog.jpg"
@@ -171,41 +174,7 @@ void set_machine_status(TFSMachine *p_status_machine,std::vector<Box> boxes)
     }
 }
 
-// ---- split string
-std::vector<int> visplit(std::string str,std::string pattern)
-{
-    std::string::size_type pos;
-    std::vector<int> result;
-    str += pattern;
-    unsigned int size = str.size();
-    for (unsigned int i = 0; i < size; i++)
-    {
-        pos = str.find(pattern, i);
-        if (pos < size)
-        {
-            std::string s = str.substr(i, pos - i);
-            result.push_back(atoi(s.c_str()));
-            i = pos + pattern.size() - 1;
-        }
-    }
-    return result;
-}
-//  ROI region valid check
-bool roi_region_is_valid(int src_w,int src_h,int roi_x,int roi_y,int roi_w,int roi_h)
-{
-    if((0>roi_x) ||((src_w-roi_w)<roi_x))
-    {
-        ROS_INFO("Error: ROI x0 or x1 is out of image X-axes.");
-        return false;
-    }
-    if((0>roi_y) ||((src_h-roi_h)<roi_y))
-    {
-        ROS_INFO("Error: ROI y0 or y1 is out of image Y-axes.");
-        return false;
-    }
-    return true;
-
-}
+//从camera接受image数据,像素值填入input_data.
 void get_input_data_ssd(Mat& image_org, float* input_data, int img_h, int img_w)
 {
     cv::Mat image_input = image_org.clone();
@@ -318,61 +287,64 @@ void post_process_ssd(cv::Mat& image_input,float threshold,float* outdata,int nu
 // cmd call back
 static void cmd_callback(const dashboard_msgs::cam_cmd &cmd)
 {
+    ROS_INFO("cmd_callback!");
     unsigned int func_id = cmd.func_id;
     int cam_id = cmd.cam_id;
     int cmd_id = cmd.cmd_id;    
-    //std::cout<<"cam_id: "<<cam_id<<" cmd_id: "<<cmd_id<<std::endl;
+    std::cout<<"cam_id: "<<cam_id<<" cmd_id: "<<cmd_id<<std::endl;
     if(cam_id ==1)
     {
-	int ret = cmd_id + 1;
-	int cmd_accept_label =1;
-	if(-1 == cmd_id)
+    	int ret = cmd_id + 1;
+    	int cmd_accept_label =1;
+    	if(-1 == cmd_id)
         {   
-	    ROS_INFO("EX: shut down traffic_detect node!");
-	    pthread_mutex_lock(&g_cmd_mutex);
-	    g_node_active =false;
-	    g_node_label = 0;	    
-	    // cmd response publish 
-	    std_msgs::Int32MultiArray val;
-            val.data.push_back(cmd_accept_label);
-	    val.data.push_back(cmd_id);
-            //pub_traffic_status.publish(val);	  
-	    pthread_mutex_unlock(&g_cmd_mutex);
-            
-	}
-	else
-	{
-	    //int node_label;
-	    if((cmd_id>-1)&&(cmd_id<2))
-	    {
-	        pthread_mutex_lock(&g_cmd_mutex);
-	        g_node_label = cmd_id;
-		pthread_mutex_unlock(&g_cmd_mutex);
-		//node_label = cmd_id;
+    	    ROS_INFO("EX: shut down traffic_detect node!");
+    	    pthread_mutex_lock(&g_cmd_mutex);
+    	    g_node_active =false;
+    	    g_node_label = 0;	    
+    	    // cmd response publish 
+    	    std_msgs::Int32MultiArray val;
+                val.data.push_back(cmd_accept_label);
+    	    val.data.push_back(cmd_id);
+                //pub_traffic_status.publish(val);	  
+    	    pthread_mutex_unlock(&g_cmd_mutex);
+                
+    	}
+    	else
+    	{
+    	    //int node_label;
+    	    if((cmd_id>-1)&&(cmd_id<2))
+    	    {
+    	        pthread_mutex_lock(&g_cmd_mutex);
+    	        g_node_label = cmd_id;
+    		    pthread_mutex_unlock(&g_cmd_mutex);
+    		    //node_label = cmd_id;
                 if(cmd_id ==0)
-		    ROS_INFO("EX: ensleep road_detect node!");
-		else
-		    ROS_INFO("EX: wake up road_detect node!");
-	    }
-	    else
-	    {
+    		        ROS_INFO("EX: ensleep road_detect node!");
+    		    else
+    		        ROS_INFO("EX: wake up road_detect node!");
+    	    }
+    	    else
+    	    {
                 cmd_accept_label = 0;
-		ret = ret -1;
-	        ROS_INFO("EX: unknown cmd!");
-	    }
-	    // publish
-	    dashboard_msgs::Cmd val;
-	    val.header =g_img_header;
-	    val.func_id =func_id;
-	    val.value = unsigned(ret);
-	    val.retry = 0; 
-	    pub_traffic_status.publish(val);
-	}
+    		    ret = ret -1;
+    	        ROS_INFO("EX: unknown cmd!");
+    	    }
+    	    // publish
+    	    dashboard_msgs::Cmd val;
+    	    val.header =g_img_header;
+    	    val.func_id =func_id;
+    	    val.value = unsigned(ret);
+    	    val.retry = 0; 
+    	    pub_traffic_status.publish(val);
+    	}
     }
 }
 
 static void image_callback(const sensor_msgs::Image& image_source)
 {
+    //ROS_INFO("traffic_detect:image_callback!!!!!!!");
+
     int wake_up =0 ;
     pthread_mutex_lock(&g_cmd_mutex);  
     wake_up = g_node_label;
@@ -383,33 +355,40 @@ static void image_callback(const sensor_msgs::Image& image_source)
     // node is wake up
     if(wake_up>0)
     {
-	if(!g_win_show) //new win
-	{
-	    cv::namedWindow(win_name,WINDOW_AUTOSIZE);
-	    cv::moveWindow(win_name,0,0);
-	    g_win_show = true;
-	    ROS_INFO("new road window");
-	}
+    	if(!g_win_show) //new win
+    	{
+    	    cv::namedWindow(win_name,WINDOW_AUTOSIZE);
+    	    cv::moveWindow(win_name,0,0);
+    	    g_win_show = true;
+    	    ROS_INFO("new road window");
+    	}
     }
     else
     {
-	if(g_win_show)
-	{
-	    cv::destroyWindow(win_name);
-	    g_win_show =false;
-	    ROS_INFO("delete road window");
-	}
-	return;
+    	if(g_win_show)
+    	{
+    	    cv::destroyWindow(win_name);
+    	    g_win_show =false;
+    	    ROS_INFO("delete road window");
+    	}
+
+        //ROS_INFO("wake_up=%d",wake_up);
+	    return;
     }
     cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_source, "bgr8");
     cv::Mat frame = cv_image->image;   
     int src_w = frame.cols;
     int src_h =frame.rows;
+    
     bool ret =roi_region_is_valid(src_w,src_h,g_roi_x,g_roi_y,g_roi_w,g_roi_h);
     
     // unvalid ROI,skip...
     if(!ret)
+    {
+        ROS_INFO("invalid ROI,just return");
         return;
+    }
+        
    // get roi data
    cv::Mat frame_input =  frame(cv::Rect(g_roi_x,g_roi_y,g_roi_w,g_roi_h));
    
@@ -525,19 +504,8 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&g_cmd_mutex,NULL);
 
     // roi region init
-    std::vector<int> roi_vec =visplit(roi_region,",");
-    if(roi_vec.size()<3)
-    {
-        ROS_INFO("Error: roi_region at least specified 3 integers");
-        return -1;
-    }else if(roi_vec.size()<4)
-    {
-        roi_vec.push_back(roi_vec[2]);       
-    }
-    g_roi_x = roi_vec[0];
-    g_roi_y = roi_vec[1];
-    g_roi_w = roi_vec[2];
-    g_roi_h = roi_vec[3];
+
+    
     
     // TFSMaintainer init
     int epoch_frames = atoi(refresh_epoch.c_str());
@@ -547,46 +515,7 @@ int main(int argc, char *argv[])
         ROS_INFO(" Warning:refresh_epoch value should >=1,using default value(%d)",epoch_frames);
     }
     gp_auto_maintainer = new TFSMaintainer(epoch_frames);
-    
-    // init tengine
-    init_tengine_library();
-    if (request_tengine_version("0.1") < 0)
-        return 1;
-    if (load_model(model_name.c_str(), "caffe", proto_file.c_str(), model_file.c_str()) < 0)
-        return 1;
-    ROS_INFO("load model done!");
-    // create graph
-    g_graph = create_runtime_graph("graph", model_name.c_str(), NULL);
-    if (!check_graph_valid(g_graph))
-    {
-        ROS_WARN("create graph0 failed");
-        return 1;
-    }
-    //tensor
-    int node_idx = 0;
-    int tensor_idx = 0;
-    g_input_tensor = get_graph_input_tensor(g_graph, node_idx, tensor_idx);
-    if(!check_tensor_valid(g_input_tensor))
-    {
-        ROS_INFO("Get input node failed : node_idx: %d, tensor_idx: %d",node_idx,tensor_idx);
-        return 1;
-    }
-    // prerun graph
-    int dims[] = {1, 3, g_img_h, g_img_w};
-    set_tensor_shape(g_input_tensor, dims, 4);
-    
-    prerun_graph(g_graph);
-
-    //申请内存，注意释放
-    int img_size = g_img_h * g_img_w * 3;
-    g_input_data = (float *)malloc(sizeof(float) * img_size);
-    if(g_input_data == NULL)
-    {
-        ROS_WARN("malloc input data failed");
-        return 1;
-    }
-    ROS_INFO("graph is ready,waiting for image raw");
-    
+        
     //create active thread
     pthread_t pub_active_tid;
     if(pthread_create(&pub_active_tid,NULL,auto_active_pub,NULL)!=0)

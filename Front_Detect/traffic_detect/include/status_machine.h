@@ -5,19 +5,18 @@
 struct TFSCODE
 {
     bool codes[6];
-   std::map<std::string,int> hash_map;
-    
+    std::map<std::string,int> classname2idx;  //stop:1 
 };
 
 class TFSMachine
 {
     public:
-        //----
         TFSMachine()
         {
             // default status: stop_up,stop_left,go_right
             init_tls_code();
         }
+
         bool add_round_tl_signal(bool is_green=false); //
         void get_tls_go_code(bool &go_up,bool &go_left,bool &go_right);
         bool add_arrow_tl_signal(std::string tls_key);
