@@ -12,7 +12,7 @@
         <arg name="traffic_status_topic" default="/traffic/status"/>
     	<arg name="traffic_active_topic" default="/traffic/active"/>
 
-	<node pkg="traffic_detect" type="traffic_detect" name="traffic_detect" output="screen">
+	<node pkg="traffic_detect" type="traffic_detect_jetson" name="whatever" args="--flagfile=config/yolov3-tiny_for_trafficlights.txt" output="screen">
 	<param name="proto_file" value="$(arg proto_file)"/>
 	<param name="model_file" value="$(arg model_file)"/>
 	<param name="model_name" value="$(arg model_name)"/>
