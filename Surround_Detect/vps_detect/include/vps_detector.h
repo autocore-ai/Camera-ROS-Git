@@ -53,7 +53,8 @@ private:
         m_frame_roi =  m_frame(cv::Rect(m_x,m_y,m_w,m_h));
 
         //{"background","free_park", "forbid_park", "incar_park"};
-        
+
+        std::vector<Box> free_park_boxes;
         std::vector<Box> non_free_park_boxes;
         std::vector<BBoxInfo> boxes = m_yolo_helper.do_inference(m_frame_roi);
         int box_idx = 0;
@@ -71,7 +72,13 @@ private:
             {
                 non_free_park_boxes.push_back(b);
             }
-
+            if(class_name == "free_park")
+            {
+                if(is_effective_park(non_free_park_boxes, b, 0.6))
+                {
+                    free_park_boxes.push_back(b);
+                }
+            }
             
 
         }
@@ -324,10 +331,10 @@ private:
     }
 
 
-    //通过iou判断车位是否有效
-    bool overlap_park_supperss(std::vector<Box> box_list,Box src_box,float iou_thresold/* =0.5*/)
+    //通过iou判断车位是否有效 与任一无效车位iou超过阈值,则认为是无效车位
+    bool is_effective_park(std::vector<Box> box_list,Box src_box,float iou_thresold/* =0.5*/)
     {
-        bool suppressed = false;
+        bool effective = true;
         if(iou_thresold<0|| iou_thresold >1)
             iou_thresold = 0.5;//default iou
         float iou;
@@ -339,13 +346,13 @@ private:
                 iou =  get_box_overlap_ratio(box,src_box);
                 if(iou>iou_thresold)
                 {
-                    suppressed = true;
+                    suppressed = false;
                     break;
                 }
             }
         }
         
-        return suppressed; 
+        return effective; 
     }
 
     // get line' length  获取两点之间的距离
