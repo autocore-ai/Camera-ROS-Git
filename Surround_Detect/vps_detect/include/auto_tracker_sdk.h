@@ -55,24 +55,25 @@ public:
     {
         if(init_clock <1)
 	    init_clock = 1;
-	m_init_clock = init_clock;
-	m_delta_x = delta_x;
-	m_delta_y = delta_y;
-	m_clock_thresh = clock_thresh;
-	m_center_thresh = center_thresh;
-	m_iou_thresh = iou_thresh;
-	m_iou_level = iou_level;
+    	m_init_clock = init_clock;
+    	m_delta_x = delta_x;
+    	m_delta_y = delta_y;
+    	m_clock_thresh = clock_thresh;
+    	m_center_thresh = center_thresh;
+    	m_iou_thresh = iou_thresh;
+    	m_iou_level = iou_level;
         m_send_epoch = send_epoch;
         m_curr_epoch =0;
         m_max_num = 100;
         m_max_id =0;
 	
-	if(m_iou_level<1)
-	    m_iou_level = 1;
-       // m_ptrackers_id = new bool[m_max_num];
+	    if(m_iou_level<1)
+	        m_iou_level = 1;
+        // m_ptrackers_id = new bool[m_max_num];
         for(int i =0; i< int(m_max_num);i++)
             m_ptrackers_id[i] =false;
     }
+    
     ~ATCParkTracker()
     {
        // std::cout<<"destruct ATCParkTracker.\n";
