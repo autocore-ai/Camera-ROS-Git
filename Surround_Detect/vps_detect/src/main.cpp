@@ -27,8 +27,7 @@ using namespace cv;
 using namespace std;
 
 int main(int argc, char *argv[])
-{
-    /*
+{ 
     bool test=false;    
     if(test)
     {
@@ -44,8 +43,7 @@ int main(int argc, char *argv[])
 
     VpsDetector detector;
     detector.init(argc,argv);
-    */
-
+    
     CarParkMgr cpm;
     
     ros::spin();
