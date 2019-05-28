@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(vps_detect)
 
-set( TENGINE_LIBS_DIR ${PROJECT_SOURCE_DIR}/../../Tengine_Lib)
-set( TENGINE_LIBS tengine)
 message("***************************************************")
-message("${TENGINE_LIBS_DIR}")
+MESSAGE("PROJECT_SOURCE_DIR: " ${PROJECT_SOURCE_DIR})
 message("***************************************************")
+
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 add_definitions(-Wno-unused-command-line-argument)
@@ -46,15 +46,54 @@ find_package(OpenCV REQUIRED)
 ## Your package locations should be listed before other locations
 include_directories(
   include
+  yolo_lib
   ${catkin_INCLUDE_DIRS}
 )
 
-link_directories( ${TENGINE_LIBS_DIR})
+####### for jetson
+find_package(jetson-utils)
+find_package(jetson-inference)
 
-add_executable(vps_detect src/vps_detect.cpp src/auto_yulan_sdk.cpp src/auto_tracker_sdk.cpp)
+# CUDA and Qt4 are required
+#message("cuda")
+find_package(CUDA)
+find_package(Qt4)
 
-target_link_libraries(vps_detect ${TENGINE_LIBS} ${OpenCV_LIBS} ${catkin_LIBRARIES})
+# setup Qt4 for build
+include(${QT_USE_FILE})
+add_definitions(${QT_DEFINITIONS})
 
-add_dependencies(vps_detect ${catkin_EXPORTED_TARGETS})
+# Find TensorRT
+find_path(TRT_INCLUDE_DIR NvInfer.h HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES include)
+if(${TRT_INCLUDE_DIR} MATCHES "TRT_INCLUDE_DIR-NOTFOUND")
+  MESSAGE(FATAL_ERROR "-- Unable to find TensorRT headers. Please set path using -DTRT_SDK_ROOT")
+else()
+  MESSAGE(STATUS "Found TensorRT headers at ${TRT_INCLUDE_DIR}")
+endif()
 
+find_library(TRT_LIBRARY_INFER nvinfer HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES lib lib64 lib/x64)
+find_library(TRT_LIBRARY_INFER_PLUGIN nvinfer_plugin HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES lib lib64 lib/x64)
+if((${TRT_LIBRARY_INFER} MATCHES "TRT_LIBRARY_INFER-NOTFOUND") OR (${TRT_LIBRARY_INFER_PLUGIN} MATCHES "TRT_LIBRARY_INFER_PLUGIN-NOTFOUND"))
+  MESSAGE(FATAL_ERROR "-- Unable to find TensorRT libs. Please set path using -DTRT_SDK_ROOT")
+else()
+  set(TRT_LIBRARY ${TRT_LIBRARY_INFER} ${TRT_LIBRARY_INFER_PLUGIN})
+  MESSAGE(STATUS "Found TensorRT libs at ${TRT_LIBRARY}")
+endif()
+
+
+set( CUDA_LIBS_DIR /usr/local/cuda/lib64)
+link_directories( ${CUDA_LIBS_DIR})
+
+
+# Add yolo lib as subdir
+add_subdirectory(./yolo_lib)
+
+#compile
+cuda_add_executable(vps_detect src/main.cpp src/vps_detector.cpp src/yolo_helper.cpp src/auto_yulan_sdk.cpp src/carpark_mgr.cpp)
+
+#link
+target_link_libraries(vps_detect  yolo-lib ${OpenCV_LIBS} ${catkin_LIBRARIES} jetson-inference )
+
+#
+#add_dependencies(vps_detect ${catkin_EXPORTED_TARGETS})
 

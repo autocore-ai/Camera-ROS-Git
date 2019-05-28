@@ -37,20 +37,19 @@ public:
         init_yulan_sdk();
 	    init_tf_sdk();
     }
-    void convert_to_carw(ATCPark* p_new_park);
-//    void update(float dx, float dy,float img_width,float img_height,geometry_msgs::PoseStamped pose_stamp);
-    
+
     void update(float dx,float dy,float img_width,float img_height,geometry_msgs::Point position,geometry_msgs::Quaternion orientation);
-    //void convert_to_simu_carw(ATCPark* p_new_park);
+
     void convert_to_vecmap(ATCPark *p_new_park);
-    //void convert_to_vecmap(ATCPark *p_new_park,CarPose pose);
+private:
+    void convert_to_carw(ATCPark* p_new_park);
     
-    float get_width()
+    inline float get_width()
     {
         return m_width;
     }
 
-    float get_height()
+    inline float get_height()
     {
         return m_height;
     }    

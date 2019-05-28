@@ -3,6 +3,13 @@
 #include"auto_park.h"
 #include<string.h>
 #include<vector>
+
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <cv_bridge/cv_bridge.h>
+
+using namespace cv;
+
 /*
 struct ATCPark
 {
@@ -54,7 +61,8 @@ public:
     ATCParkTracker( unsigned int init_clock, float delta_x,float delta_y,unsigned int clock_thresh, float center_thresh,float iou_thresh, unsigned int iou_level,unsigned int send_epoch)
     {
         if(init_clock <1)
-	    init_clock = 1;
+	        init_clock = 1;
+        
     	m_init_clock = init_clock;
     	m_delta_x = delta_x;
     	m_delta_y = delta_y;
@@ -83,15 +91,19 @@ public:
     //int init()
     bool add_tracker(ATCPark * p_new_park);
     unsigned int get_pub_trackers(std::vector<ATCPubPark> &pub_trks);
-    unsigned int get_vis_trackers(std::vector<ATCVisPark> &vis_trks);
+    
     //void vis(cv::Mat &vis_img);
     unsigned int update()
     {
         return update_clock();
     }
     void test_compute_iou();    
-                 
+
+    // park tracker vis 
+    void draw_park_img(cv::Mat &img);
 private:
+    unsigned int get_vis_trackers(std::vector<ATCVisPark> &vis_trks);
+
     //vector<AutoPark*> m_ptrackers;
     std::vector<ATCPark*>::iterator pop(std::vector<ATCPark*>::iterator it);       
     bool allocate_tracker_id(unsigned int &tracker_id);
@@ -106,11 +118,11 @@ private:
     unsigned int update_clock();
 private:    
     std::vector<ATCPark*> m_ptrackers;
-    unsigned int m_max_num;
-    unsigned int m_max_id;
+    unsigned int m_max_num = 100;
+    unsigned int m_max_id = 0;
     //unsigned int get_stable_trackers(int trks_idx[3],unsigned int clock_thresh);
-    int m_init_clock;
-    unsigned int m_clock_thresh;
+    int m_init_clock = 10;
+    unsigned int m_clock_thresh = 3;
     unsigned int m_send_epoch;
     unsigned int m_curr_epoch;
     float m_center_thresh;
