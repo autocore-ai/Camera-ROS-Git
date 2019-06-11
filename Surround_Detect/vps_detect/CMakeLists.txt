@@ -46,7 +46,7 @@ find_package(OpenCV REQUIRED)
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  yolo_lib
+  #yolo_lib
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -62,6 +62,12 @@ find_package(Qt4)
 # setup Qt4 for build
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
+
+# yolo lib
+set (YOLO_DIR ${PROJECT_SOURCE_DIR}/../../yolo_lib)
+MESSAGE("YOLO_DIR: " ${YOLO_DIR})
+include_directories(${YOLO_DIR})
+link_directories( ${YOLO_DIR})
 
 # Find TensorRT
 find_path(TRT_INCLUDE_DIR NvInfer.h HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES include)
@@ -85,11 +91,11 @@ set( CUDA_LIBS_DIR /usr/local/cuda/lib64)
 link_directories( ${CUDA_LIBS_DIR})
 
 
-# Add yolo lib as subdir
-add_subdirectory(./yolo_lib)
+# add yolo_lib directory
+# add_subdirectory(../../yolo_lib yolo_lib.out)
 
 #compile
-cuda_add_executable(vps_detect src/main.cpp src/vps_detector.cpp src/yolo_helper.cpp src/auto_yulan_sdk.cpp src/carpark_mgr.cpp)
+cuda_add_executable(vps_detect src/main.cpp src/vps_detector.cpp src/auto_yulan_sdk.cpp src/carpark_mgr.cpp)
 
 #link
 target_link_libraries(vps_detect  yolo-lib ${OpenCV_LIBS} ${catkin_LIBRARIES} jetson-inference )

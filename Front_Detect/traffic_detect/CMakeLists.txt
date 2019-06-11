@@ -57,11 +57,12 @@ find_package(OpenCV REQUIRED)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+MESSAGE("catkin_INCLUDE_DIRS: " ${catkin_INCLUDE_DIRS})
 include_directories(
   include
-  yolo_lib
   ${catkin_INCLUDE_DIRS}
 )
+
 
 #link_directories( ${TENGINE_LIBS_DIR})
 
@@ -77,15 +78,8 @@ find_package(jetson-utils)
 find_package(jetson-inference)
 
 # CUDA and Qt4 are required
-message("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!find cuda!!!!!!!!!!!!!!!!!!!!!!!!")
 find_package(CUDA)
-message("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!find_cuda!!!!!!!!!!!!!!!!!!!!!!!!")
 find_package(Qt4)
-
-message("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!***************************************************")
-#MESSAGE("opencv_libs: " ${OpenCV_LIBS})
-MESSAGE("cuda_libs: " ${CUDA_LIBS})
-message("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!***************************************************")
 
 # setup Qt4 for build
 include(${QT_USE_FILE})
@@ -110,10 +104,16 @@ endif()
 
 
 # Add yolo lib as subdir
-add_subdirectory(./yolo_lib)
+#add_subdirectory(../../yolo_lib yolo_lib.out)
+
+# yolo lib
+set (YOLO_DIR ${PROJECT_SOURCE_DIR}/../../yolo_lib)
+MESSAGE("YOLO_DIR: " ${YOLO_DIR})
+include_directories(${YOLO_DIR})
+link_directories( ${YOLO_DIR})
 
 #compile
-cuda_add_executable(traffic_detect_jetson src/traffic_detect_jetson.cpp src/status_machine.cpp  src/yolo_helper.cpp src/trafficlights_detector.cpp)
+cuda_add_executable(traffic_detect_jetson src/traffic_detect_jetson.cpp src/status_machine.cpp  src/trafficlights_detector.cpp)
 
 #link
 target_link_libraries(traffic_detect_jetson  yolo-lib ${OpenCV_LIBS} ${catkin_LIBRARIES} jetson-inference )
