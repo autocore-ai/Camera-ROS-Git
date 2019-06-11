@@ -22,9 +22,11 @@ float ATCMapper::convert_location(float src_loc,float center,float delta)
 }
 
 //图片坐标系到车身坐标系
-void ATCMapper::convert_to_carw(ATCPark* p_new_park)
+void ATCMapper::convert_to_carw(ParkInfo* p_new_park)
 {
    // this->m_atc_park= p_new_park;
+    cout<<"m_centerx:"<<m_center_x<<",m_centery:"<<m_center_y<<endl;
+    ROS_ERROR("centerx:%f,centery:%f",m_center_x,m_center_y);
     for(int i =0;i<4;i++)
     {
     	int x_idx = 2*i;
@@ -48,7 +50,7 @@ void ATCMapper::update(float dx,float dy,float img_width,float img_height,geomet
     init_tf_sdk();    
 }
 
-void ATCMapper::convert_to_vecmap(ATCPark* p_new_park)
+void ATCMapper::convert_to_vecmap(ParkInfo* p_new_park)
 {	
     convert_to_carw(p_new_park);
     float x_car,y_car,x,y,z;

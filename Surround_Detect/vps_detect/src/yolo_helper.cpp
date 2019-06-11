@@ -12,6 +12,9 @@
 #include <string>
 #include <sys/time.h>
 #include <iostream>
+
+#include <ros/ros.h>
+
 using namespace std;
 
 
@@ -66,6 +69,8 @@ void YoloHelper::parse_config_params(int argc, char** argv)
         return -1;
     }
 */
+    ROS_INFO("m_saveDetections:%s",m_saveDetections?"true":"false");
+    ROS_INFO("m_saveDetectionsPath:%s",m_saveDetectionsPath.c_str());
 }
    
 std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org)
@@ -115,10 +120,15 @@ std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org)
             curImage.addBBox(b, m_inferNet->getClassName(b.label));
         }
 
-        // if (m_viewDetections)
-        // {
-        //     curImage.showImage();
-        // }
+         if (m_viewDetections)
+         {
+             curImage.showImage();
+         }
+
+         if(m_saveDetections)
+         {
+            curImage.saveImageJPEG(m_saveDetectionsPath);
+         }
      }
 
      return boxes;

@@ -4,7 +4,7 @@ struct ATCPark
 {
     
     float points_in_world[8];//(x0,y0,x1,y1,x2,y2,x3,y3)
-    float points_in_car[8];//(x0,y0,x1,y1,x2,y2,x3,y3)
+    
     float points_in_img[8];//(x0,y0,x1,y1,x2,y2,x3,y4)
     float conf_score=0;
     unsigned int id = 0;
@@ -14,6 +14,7 @@ struct ATCPark
     float area;
 };
 
+/*
 struct ATCVisPark
 {
     int grid_data[8];// x0,y0,x1,y1,x2,y2,x3,y3
@@ -31,4 +32,5 @@ struct ATCPubPark
     //unsigned int clock;    
     unsigned int cls_id=0;
 };
+*/
 #endif

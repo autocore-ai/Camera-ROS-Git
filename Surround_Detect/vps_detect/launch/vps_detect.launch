@@ -1,8 +1,5 @@
 <launch>
 	<!-- declare arguments with default values -->
-	<arg name="proto_file" default="$(find vps_detect)/models/MobileNetSSD_deploy.prototxt"/>
-	<arg name="model_file" default="$(find vps_detect)/models/MobileNetSSD_deploy.caffemodel"/>
-	<arg name="model_name" default="mssd_300"/>
     	<arg name="image_source_topic" default="/usb_cam/image_raw"/>
     	<arg name="image_pose_topic" default="/gnss_pose"/>
     	<arg name="cam_cmd_topic" default="/cam/cmd"/>
@@ -10,18 +7,26 @@
     	<arg name="image_raw_topic" default="/vps/image_raw"/>
     	<arg name="vps_status_topic" default="/vps/status"/>
     	<arg name="vps_active_topic" default="/vps/active"/>
+	
 
-
-	<node pkg="vps_detect" type="vps_detect" name="vps_detect" args="--flagfile=config/yolov3-tiny_park.txt" output="screen">
-	<param name="proto_file" value="$(arg proto_file)"/>
-	<param name="model_file" value="$(arg model_file)"/>
-	<param name="model_name" value="$(arg model_name)"/>
-        <param name="image_source_topic" value="$(arg image_source_topic)"/>
+	    <node pkg="vps_detect" type="vps_detect" name="vps_detect" args="--flagfile=$(find vps_detect)/models/config/yolov3-tiny_park.txt" output="screen">
+	    <param name="test_mode" type="bool" value="1"/>
+	    <param name="frame_counts_divide" type="int" value="30"/>
+	    <param name="bbox_expand_ratio" type="double" value="0.2"/>	 <!-- bbox的扩展比例:防止bbox没有把车位线框在内 -->
+		<param name="min_lw_ratio" type="double" value="1.2"/>	 <!-- park有效宽高比 用于过滤不规则车位 -->
+	    <param name="max_lw_ratio" type="double" value="5.5"/>	 <!-- park有效宽高比 用于过滤不规则车位 -->		
+        
+	    <param name="min_frame" type="int" value="2"/>       <!-- 连续xx帧检测到某个车位才认为是有效车位 -->
+		<param name="max_iou" type="double" value="0.5"/>    <!-- 重叠面积比例超过xx 认为是同一个车位 -->
+			
+	    <param name="image_source_topic" value="$(arg image_source_topic)"/>
         <param name="image_pose_topic" value="$(arg image_pose_topic)"/>
         <param name="cam_cmd_topic" value="$(arg cam_cmd_topic)"/>
         <param name="image_object_topic" value="$(arg image_object_topic)"/>
         <param name="image_raw_topic" value="$(arg image_raw_topic)"/>
         <param name="vps_status_topic" value="$(arg vps_status_topic)"/>
         <param name="vps_active_topic" value="$(arg vps_active_topic)"/>
+
+	
 	</node>
 </launch>

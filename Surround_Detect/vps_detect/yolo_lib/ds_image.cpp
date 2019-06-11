@@ -34,6 +34,7 @@ DsImage::DsImage() :
     m_RNG(cv::RNG(unsigned(std::time(0)))),
     m_ImageName()
 {
+    m_ImageName = "img";
 }
 
 DsImage::DsImage(const cv::Mat& image_org, const int& inputH, const int& inputW):
@@ -47,6 +48,8 @@ DsImage::DsImage(const cv::Mat& image_org, const int& inputH, const int& inputW)
 {
     //m_ImageName = std::experimental::filesystem::path(path).stem().string();
     //m_OrigImage = cv::imread(path, CV_LOAD_IMAGE_COLOR);
+    m_ImageName = "img";
+    
     m_OrigImage = image_org;
 
     if (!m_OrigImage.data || m_OrigImage.cols <= 0 || m_OrigImage.rows <= 0)
@@ -174,7 +177,9 @@ void DsImage::showImage() const
 
 void DsImage::saveImageJPEG(const std::string& dirPath) const
 {
-    cv::imwrite(dirPath + m_ImageName + ".jpeg", m_MarkedImage);
+    std::string imgFullPathName =  dirPath + m_ImageName + ".jpeg";
+    std::cout<<"imgname:"<<imgFullPathName<<std::endl;
+    cv::imwrite(imgFullPathName, m_MarkedImage);
 }
 std::string DsImage::exportJson() const
 {

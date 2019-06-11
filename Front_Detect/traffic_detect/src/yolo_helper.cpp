@@ -115,10 +115,15 @@ std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org)
             curImage.addBBox(b, m_inferNet->getClassName(b.label));
         }
 
-        // if (m_viewDetections)
-        // {
-        //     curImage.showImage();
-        // }
+         if (m_viewDetections)
+         {
+             curImage.showImage();
+         }
+         
+         if (m_saveDetections)
+         {
+             curImage.saveImageJPEG(saveDetectionsPath);
+         }
      }
 
      return boxes;

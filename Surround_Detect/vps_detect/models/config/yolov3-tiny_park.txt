@@ -31,9 +31,9 @@
 # labels_file_path : Text file with a list of object class labels
 
 --network_type=yolov3-tiny
---config_file_path=data/yolov3-tiny_park.cfg
---wts_file_path=data/yolov3-tiny_park_final.weights
---labels_file_path=data/park.names
+--config_file_path=/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/yolov3-tiny_park.cfg
+--wts_file_path=/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/yolov3-tiny_park_final.weights
+--labels_file_path=/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/park.names
 
 #Optional config params
 # precision : Inference precision of the network
@@ -70,9 +70,9 @@
 --test_images=data/test_images.txt
 #--batch_size=4
 #--do_benchmark=true
---view_detections=true
-#--save_detections=true
-#--save_detections_path=data/detections/
+#--view_detections=true
+--save_detections=true
+--save_detections_path=/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/detections/
 #--decode=false
 #--seed
 #--shuffle_test_set=false

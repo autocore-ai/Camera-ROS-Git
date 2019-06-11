@@ -3,6 +3,7 @@
 
 #include "auto_park.h"
 #include "auto_transform.h"
+#include "carpark_mgr.h"
 
 // dx,dy,w,h=21.9,20.1,1080,810
 /*struct CarPose
@@ -40,9 +41,9 @@ public:
 
     void update(float dx,float dy,float img_width,float img_height,geometry_msgs::Point position,geometry_msgs::Quaternion orientation);
 
-    void convert_to_vecmap(ATCPark *p_new_park);
+    void convert_to_vecmap(ParkInfo *p_new_park);
 private:
-    void convert_to_carw(ATCPark* p_new_park);
+    void convert_to_carw(ParkInfo* p_new_park);
     
     inline float get_width()
     {

@@ -28,23 +28,15 @@ using namespace std;
 
 int main(int argc, char *argv[])
 { 
-    bool test=false;    
-    if(test)
-    {
-        YoloHelper yolo_helper;
-        yolo_helper.parse_config_params(argc,argv);
-
-        string img_path="/home/nano/Downloads/test_img/0.jpeg";
-        cv::Mat test_img = cv::imread(img_path, CV_LOAD_IMAGE_COLOR);
-
-        yolo_helper.do_inference(test_img);
-        return 0;
-    }
-
     VpsDetector detector;
     detector.init(argc,argv);
-    
-    CarParkMgr cpm;
+
+    if(detector.m_test)
+    {
+        detector.test();
+
+        return 0;
+    }
     
     ros::spin();
     

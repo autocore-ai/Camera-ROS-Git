@@ -107,7 +107,7 @@ pthread_mutex_t g_cmd_mutex;
 // yulan mapper init params
 int g_yulan_w = 810;
 int g_yulan_h = 1080;
-float g_delta_x = 0.0219; //yulan: 0.0219 simu:0.0285
+float g_delta_x = 0.0219; // yulan: 0.0219 simu:0.0285
 float g_delta_y = 0.0201; //yulan: 0.0201 imu 0.0287
 
 // Autocore Park tracker  init params
@@ -183,7 +183,7 @@ float get_box_overlap_ratio(Box bbox1, Box bbox2)
     return iou;
 }
 
-bool overlap_park_supperss(std::vector<BBoxInfo> box_list, BBoxInfo src_box, float iou_thresold /* =0.5*/)
+bool overlap_park_supperss(std::vector<Box> box_list, Box src_box, float iou_thresold /* =0.5*/)
 {
     bool suppressed = false;
     if (iou_thresold < 0 || iou_thresold > 1)
@@ -191,8 +191,8 @@ bool overlap_park_supperss(std::vector<BBoxInfo> box_list, BBoxInfo src_box, flo
     float iou;
     for (unsigned int idx = 0; idx < box_list.size(); ++idx)
     {
-        BBoxInfo box = box_list[idx];
-        if (1 != bo) // forbidden_park or incar_park
+        Box box = box_list[idx];
+        if (1 != box.class_idx) // forbidden_park or incar_park
         {
             iou = get_box_overlap_ratio(box, src_box);
             if (iou > iou_thresold)
@@ -528,6 +528,7 @@ void post_process_ssd(cv::Mat &image_input, ATCParkTracker *p_atc_tracker, ATCMa
             if ((2 == outdata[0]) || (3 == outdata[0]))
             {
                 non_free_park_boxes.push_back(box);
+                
             }
         }
         outdata += 6;
@@ -584,6 +585,21 @@ void post_process_ssd(cv::Mat &image_input, ATCParkTracker *p_atc_tracker, ATCMa
         outdata += 6;
     }
 
+    for(Box b:boxes)
+    {
+        cv::Point point1(b.x0,b.y0);
+        cv::Point point2(b.x1,b.y0);
+        cv::Point point3(b.x1,b.y1);
+        cv::Point point4(b.x0,b.y1);
+
+        cv::line(img,point1,point2,cv::Scalar(0,255,0),2,CV_AA);
+        cv::line(img,point2,point3,cv::Scalar(0,255,0),2,CV_AA);
+        cv::line(img,point3,point4,cv::Scalar(0,255,0),2,CV_AA);
+        cv::line(img,point4,point1,cv::Scalar(0,255,0),2,CV_AA);
+    }
+    cv::imshow("ssd",img);
+    cv::waitKey(0);
+    
     std::vector<ParkAnchor> dst_anchor_list;
     //int num_park =0;
     /*---park location finetune---*/
@@ -790,11 +806,11 @@ void post_process_ssd(cv::Mat &image_input, ATCParkTracker *p_atc_tracker, ATCMa
         p_atc_mapper->convert_to_vecmap(p_new_park);
 
         //p_atc_mapper->convert
-        bool res = p_atc_tracker->add_tracker(p_new_park);
-        if (!res)
-        {
-            ROS_WARN("add new tracker failed.");
-        }
+        //bool res =p_atc_tracker->add_tracker(p_new_park);
+        //if(!res)
+        //{
+        //ROS_WARN("add new tracker failed.");
+        //}
     }
 
     std::vector<ATCVisPark> vis_trks;
@@ -928,6 +944,7 @@ static void image_callback(const sensor_msgs::Image &image_source)
 
     std::string win_name = "vps_show";
     // wake up
+    wake_up = 1;
     if (wake_up > 0)
     {
         if (!g_win_show) // new win
@@ -1009,7 +1026,7 @@ static void image_callback(const sensor_msgs::Image &image_source)
     /*unsigned int old_trks = gp_atc_tracker->update();
     ROS_INFO("Old trackers:%d",old_trks);
     */
-    gp_atc_tracker->update();
+    //gp_atc_tracker->update();
     post_process_ssd(frame_input, gp_atc_tracker, p_atc_mapper, show_threshold, outdata, num, frame_show, msg);
     delete p_atc_mapper;
 

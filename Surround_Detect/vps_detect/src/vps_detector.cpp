@@ -13,6 +13,11 @@
 #include "opencv2/highgui/highgui.hpp"
 using namespace cv;
 
+#define MYDEBUG ROS_INFO("%s-%d",__FUNCTION__,__LINE__);
+#define LOG_FUNC_BEGIN ROS_INFO("%s begin",__FUNCTION__);
+#define LOG_FUNC_END ROS_INFO("%s end",__FUNCTION__);
+
+
 VpsDetector::VpsDetector()
 {
 
@@ -39,11 +44,18 @@ void VpsDetector::init(int argc,char** argv)
     unsigned int send_epoch = 10;
     m_park_tracker = new ATCParkTracker(init_clock, m_delta_x, m_delta_y, clock_thresh, center_thresh, iou_thresh, iou_level, send_epoch);
     */
-
     m_p_carpark_mgr = new CarParkMgr;
-
     m_p_atc_mapper = new ATCMapper;
-    //m_p_park = new ATCPark;
+    m_p_park = new ParkInfo;
+
+
+    m_pose.pose.position.x = 1.0;
+    m_pose.pose.position.y = 1.0;
+    m_pose.pose.position.z = 1.0;
+    m_pose.pose.orientation.x = 2.0;
+    m_pose.pose.orientation.y = 3.0;
+    m_pose.pose.orientation.z = 4.0;
+    m_pose.pose.orientation.w = 1.0;
 } 
 
 void VpsDetector::init_ros(int argc,char **argv)
@@ -53,6 +65,7 @@ void VpsDetector::init_ros(int argc,char **argv)
     ros::NodeHandle private_nh("~");
 
     private_nh.param<std::string>("image_source_topic", m_sub_topic_image_raw_from_camera, "/usb_cam/image_raw");
+    ROS_INFO("Setting image_source_topic to %s",m_sub_topic_image_raw_from_camera.c_str());
     m_sub_image_raw = node.subscribe(m_sub_topic_image_raw_from_camera, 1, &VpsDetector::on_recv_frame,this);
 
     private_nh.param<std::string>("image_pose_topic",m_image_pose_topic,"/gnss_pose");
@@ -70,16 +83,44 @@ void VpsDetector::init_ros(int argc,char **argv)
     private_nh.param<std::string>("vps_active_topic", m_vps_active_topic, "/vps/active");
     ROS_INFO("Setting vps_active_topic to %s", m_vps_active_topic.c_str());
     m_pub_vps_active = node.advertise<dashboard_msgs::Proc>(m_vps_active_topic, 1);
+
+    private_nh.param<bool>("test_mode", m_test, false);
+    ROS_INFO("Setting test mode to %d", m_test);
+
+    private_nh.param<int>("frame_counts_divide", m_frame_counts_divide, 60);
+    ROS_INFO("Setting frame_counts_divide to %d", m_frame_counts_divide);  
+
+    private_nh.param<float>("bbox_expand_ratio", m_bbox_expand_ratio, 0.1);
+    ROS_INFO("Setting bbox_expand_ratio to %f", m_bbox_expand_ratio); 
+
+    private_nh.param<float>("min_lw_ratio",m_min_lw_ratio , 1.2);
+    ROS_INFO("Setting m_min_lw_ratio to %f", m_min_lw_ratio); 
+
+    private_nh.param<float>("max_lw_ratio", m_max_lw_ratio, 5.5);
+    ROS_INFO("Setting m_max_lw_ratio to %f", m_max_lw_ratio); 
+
 }
 
 //lines的坐标是在roi_img这张图内的坐标.
-void VpsDetector::get_lines(const cv::Mat& roi_img,std::vector<cv::Vec4i>& lines)
+void VpsDetector::get_lines(const cv::Mat& roi_img,std::vector<cv::Vec4i>& lines,int box_idx)
 {
+      LOG_FUNC_BEGIN
+        
       cv::Mat tmp_img;
       if(park_edge_detect(roi_img, tmp_img))
       {
          cv::HoughLinesP(tmp_img, lines, 1, CV_PI / 180, 20, 20, 10);
       }
+
+      //cv::imshow("lines",tmp_img);
+      //cv::waitKey(0);
+
+      std::ostringstream img_name;
+      img_name << "expandbbox_edge" << box_idx<<".jpg";
+      box_idx += 1;
+      save_img(img_name.str(), tmp_img);
+
+      LOG_FUNC_END
 }
 
 // input park patch image,
@@ -90,11 +131,13 @@ bool VpsDetector::park_edge_detect(cv::Mat src_img, cv::Mat &dst_img)
 
     //image enhance
     // cv::equalizeHist(mid_img,mid_img);
-    // cv::imshow("gray",mid_img);
+    //cv::imshow("gray",mid_img);
 
     // canny operator
     //std::cout<<"try median filter!"<<std::endl;
     cv::Canny(mid_img, edge_img, 50, 200, 3);
+    //cv::imshow("edge_img",edge_img);
+    
     bool ret = depress_fringe_grad(edge_img, depress_img, 5);
     if (!ret)
         return ret;
@@ -110,10 +153,12 @@ bool VpsDetector::park_edge_detect(cv::Mat src_img, cv::Mat &dst_img)
     //std::cout<<"width:"<<depress_img.cols<<" height:"<<depress_img.rows<<std::endl;
     //std::cout<<"height:"<<mask.cols<<" height:"<<mask.rows<<std::endl;
     depress_img.copyTo(dst_img, mask);
+
     //std::cout<<"out park edge detect\n";
     //cv::imshow("raw_edge",edge_img);
     //cv::imshow("dst_edge",dst_img);
     //cv::waitKey(100);
+
     return ret;
 }
 
@@ -178,15 +223,19 @@ void VpsDetector::process_carpark1(const cv::Point& begin,
                                           const cv::Rect& expand_rect,
                                           ParkAnchor& draw_anchor)
 {
+    ROS_INFO("process_carpark1 begin"); 
+
+    
+    
     cv::Point center(expand_rect.width / 2, expand_rect.height / 2);
-    if (begin.x < center.x)
+    if (begin.x < center.x)  //long line at right side
     {
         draw_anchor.ltop = cv::Point(begin.x, 0);
         draw_anchor.rtop = cv::Point(expand_rect.width - 1, 0);
         draw_anchor.rbot = cv::Point(expand_rect.width - 1, expand_rect.height - 1);
         draw_anchor.lbot = cv::Point(begin.x, expand_rect.height - 1);
     }
-    else
+    else   //long line at left side
     {
         draw_anchor.ltop = cv::Point(0, 0);
         draw_anchor.rtop = cv::Point(begin.x, 0);
@@ -195,6 +244,8 @@ void VpsDetector::process_carpark1(const cv::Point& begin,
     }
 
     adjust_coordination(expand_rect,draw_anchor);
+
+    ROS_INFO("process_carpark1 end");
 }
 
 //长边沿y轴方向
@@ -203,6 +254,8 @@ void VpsDetector::process_carpark1(const cv::Point& begin,
                                            const cv::Rect& expand_rect,
                                            ParkAnchor& draw_anchor)
  {
+     ROS_INFO("process_carpark2 begin"); 
+ 
      cv::Point center(expand_rect.width / 2, expand_rect.height / 2);
      
      if (begin.y < center.y) 
@@ -221,6 +274,8 @@ void VpsDetector::process_carpark1(const cv::Point& begin,
      }
 
      adjust_coordination(expand_rect,draw_anchor);
+
+     ROS_INFO("process_carpark2 end"); 
  }
 
 //长边不沿x轴,y轴方向.
@@ -228,6 +283,7 @@ bool VpsDetector::process_carpark3(const cv::Point& begin,
                                         const cv::Point& end,
                                const cv::Rect& expand_rect,ParkAnchor& draw_anchor)
 {
+      ROS_INFO("process_carpark3 begin");  
       bool valid_cakpark = true;
 
       //ax+by+c=0
@@ -260,7 +316,7 @@ bool VpsDetector::process_carpark3(const cv::Point& begin,
           get_two_crossover_from_line_to_rect(p_a, p_b, p_c, expand_rect, next_crossover);
           if (2 != next_crossover.size())
           {
-              //std::cout<<"Warnning:can not get two crossover vs("<<next_crossover.size()<<" in perpendicular line \n";
+              std::cout<<"Warnning:can not get two crossover vs("<<next_crossover.size()<<" in perpendicular line \n";
               valid_cakpark = false;
               continue;
           }
@@ -270,8 +326,20 @@ bool VpsDetector::process_carpark3(const cv::Point& begin,
           }
       }
 
+      /*-- translate 4 crossovers into ParkAnchor*/
+      if (4 == rect_crossover.size())
+      {
+          get_park_anchor(rect_crossover, draw_anchor, 1);
+      }
+      else
+      {
+          valid_cakpark = false;
+      }
+         
       adjust_coordination(expand_rect,draw_anchor);
 
+      ROS_INFO("process_carpark3 end");
+      
       return valid_cakpark;
 }
 
@@ -279,12 +347,15 @@ bool VpsDetector::process_carpark3(const cv::Point& begin,
 //只知道line是长边,但是并不知道是哪一条长边
 bool VpsDetector::process_carpark(const cv::Vec4i& line,const cv::Rect& expand_rect,ParkAnchor& draw_anchor)
 {
+    ROS_INFO("%s begin",__FUNCTION__);
+    
     bool valid = true;
 
     cv::Point begin(line[0], line[1]);
-    
     cv::Point end(line[2], line[3]); // ax+by+c =0;
 
+    ROS_INFO("long line:begin(%d,%d),end(%d,%d)",line[0],line[1],line[2],line[3]);
+    
     if (begin.x == end.x) //vectical line
     {
         process_carpark1(begin,end,expand_rect,draw_anchor);
@@ -298,32 +369,56 @@ bool VpsDetector::process_carpark(const cv::Vec4i& line,const cv::Rect& expand_r
        valid = process_carpark3(begin,end,expand_rect,draw_anchor);
     }
 
+    ROS_INFO("%s end",__FUNCTION__);
     return valid;
+}
+
+void VpsDetector::save_img(const string& img_name,const cv::Mat& img)
+{  
+    cv::imwrite(m_save_dir + img_name,img);
 }
 
 void VpsDetector::process_bbox(const std::vector<BBoxInfo>& free_park_boxes)
 {
     cv::Rect expand_rect;
-    int raw_h = m_frame_input.size().height;
-    int raw_w = m_frame_input.size().width;
+    int input_frame_h = m_frame_input.size().height;
+    int input_frame_w = m_frame_input.size().width;
+    //ROS_INFO("input_frame_h=%d,input_frame_w=%d",input_frame_h,input_frame_w);
 
+    int box_idx = 0;
     for(BBoxInfo box_info : free_park_boxes)
     {
           //拿到boundingbox,并不意味着拿到了park的坐标.下面要做的就是从boundingbox范围内的图内把park识别出来.
           BBox b = box_info.box;
           /*--enlarge bndingbox with o.1*width pixels--*/
-          expand_bndbox(cv::Rect(b.x1, b.y1, (b.x2 - b.x1), (b.y2 - b.y1)), expand_rect, 0.1, raw_w, raw_h);
+          expand_bndbox(cv::Rect(b.x1, b.y1, (b.x2 - b.x1), (b.y2 - b.y1)), expand_rect,m_bbox_expand_ratio, input_frame_w, input_frame_h);
+
           cv::Mat roi_img = m_frame_input(expand_rect);  //抠出当前的detected objet
- 
+
+          //just for test
+          //cv::imshow("fuck",);
+          //cv::waitKey(0);
+
+          std::ostringstream img_name;
+          img_name << "expandbox" << box_idx<<".jpg";
+          
+          save_img(img_name.str(), m_yolo_helper.get_marked_image(0)(expand_rect));
+                    
           /*--two stage park line detection--*/
           std::vector<cv::Vec4i> lines;
-          get_lines(roi_img,lines);
+          get_lines(roi_img,lines,box_idx);
+          box_idx += 1;
           if (lines.size() < 1)
           {
               std::cout<<"warnning can not detect lines\n";
               continue;
-          }       
+          }   
 
+          cout<<"lines size:"<<lines.size()<<endl;
+          
+          //cv::imshow("roi_img_with_line", roi_img); 
+          //cv::waitKey(0);
+          
           //找出车位的长边
           int line_idx = 0;
           int max_line = 0;
@@ -341,19 +436,23 @@ void VpsDetector::process_bbox(const std::vector<BBoxInfo>& free_park_boxes)
           cv::Vec4i long_line = lines[line_idx];
           ParkAnchor draw_anchor;
           bool is_valid = process_carpark(long_line,expand_rect,draw_anchor);
+          //ROS_INFO("park_anchor=%s",draw_anchor.to_string().c_str());
+
           if (!is_valid)
           {
                 std::cout<<"waring unvalid draw_anchor"<<std::endl;
                 continue;
           }
           cv::Point center(expand_rect.width / 2, expand_rect.height / 2);
-          if (!park_anchor_filter(draw_anchor, center, 20, 4.5, 1.2))
+          if (!park_anchor_filter(draw_anchor, center, m_thresold, m_max_lw_ratio, m_min_lw_ratio))
           {
+                std::cout<<"unormal park anchor"<<std::endl;
                 continue;
           }
 
           process_curr_park(draw_anchor,box_info);  
 
+          //break;//for test
     }
 }
 
@@ -371,16 +470,23 @@ void VpsDetector::pub_parkobj_msg()
         for(auto p : park_info)
         {
             autoreg_msgs::park_anchor park_obj;
-            park_obj.x0 = p->points_in_world[0];
-            park_obj.y0 = p->points_in_world[1];
-            park_obj.x1 = p->points_in_world[2];
-            park_obj.y1 = p->points_in_world[3];
-            park_obj.x2 = p->points_in_world[4];
-            park_obj.y2 = p->points_in_world[5];
-            park_obj.x3 = p->points_in_world[6];
-            park_obj.y3 = p->points_in_world[7];
-            park_obj.id = p->id;
 
+            park_obj.x0 = p->points_in_car[0];
+            park_obj.y0 = p->points_in_car[1];
+            park_obj.x1 = p->points_in_car[2];
+            park_obj.y1 = p->points_in_car[3];
+            park_obj.x2 = p->points_in_car[4];
+            park_obj.y2 = p->points_in_car[5];
+            park_obj.x3 = p->points_in_car[6];
+            park_obj.y3 = p->points_in_car[7];
+            
+            park_obj.id = p->id;
+            
+            cout<<"park as below"<<endl;
+            cout<<park_obj.x0<<","<<park_obj.y0<<endl;
+            cout<<park_obj.x1<<","<<park_obj.y1<<endl;
+            cout<<park_obj.x2<<","<<park_obj.y2<<endl;
+            cout<<park_obj.x3<<","<<park_obj.y3<<endl;
             m_parkobj_msg.obj.push_back(park_obj);
         }
 
@@ -391,6 +497,8 @@ void VpsDetector::pub_parkobj_msg()
 //
 void VpsDetector::process_curr_park(const ParkAnchor& draw_anchor,const BBoxInfo& box_info)
 {
+    ROS_INFO("process_curr_park begin");
+
     m_p_park->points_in_img[0] = draw_anchor.ltop.x;
     m_p_park->points_in_img[1] = draw_anchor.ltop.y;
     m_p_park->points_in_img[2] = draw_anchor.rtop.x;
@@ -399,77 +507,158 @@ void VpsDetector::process_curr_park(const ParkAnchor& draw_anchor,const BBoxInfo
     m_p_park->points_in_img[5] = draw_anchor.rbot.y;
     m_p_park->points_in_img[6] = draw_anchor.lbot.x;
     m_p_park->points_in_img[7] = draw_anchor.lbot.y;
-    m_p_park->conf_score = box_info.prob;
-    m_p_park->id = 0;
-    m_p_park->cls_id = box_info.classId;
+    
+    //m_p_park->prob = box_info.prob;
+    //m_p_park->id = 0;
+    //m_p_park->cls_id = box_info.classId;
 
     //计算地球坐标系下的坐标
     m_p_atc_mapper->convert_to_vecmap(m_p_park);
-    
-    ParkInfo info;
-    for(int i=0;i<8;i++)
-    {
-        info.points_in_world[i] = m_p_park->points_in_world[i];
-        info.points_in_img[i] = m_p_park->points_in_img[i];
-    }
-    
-    m_p_carpark_mgr->add_carpark(&info);
+        
+    m_p_carpark_mgr->add_carpark(m_p_park);
+
+    ROS_INFO("process_curr_park end");
 }
 
 //更新车身姿态信息,模型输入图片尺寸信息,以便后续不同坐标系内的坐标转换
 void VpsDetector::update_carpose()
 {
+    //only part of the img contains park.because we handle img from 810*1080-->1080*1080-->300*300
+    //810*1080-->1080*1080 we prefill (127,127,127)
     int img_w = m_frame_input.cols;
     int img_h = m_frame_input.rows;
+
+    float effective_w = img_w * (810./1080.);
     
-    m_p_atc_mapper->update(m_delta_x,m_delta_y,img_w,img_h,m_pose.pose.position,m_pose.pose.orientation);
+    float dx = m_delta_x * (1080.0/300.0);
+    float dy = m_delta_y * (1080.0/300.0);
+
+    m_p_atc_mapper->update(dx,dy,effective_w,img_h,m_pose.pose.position,m_pose.pose.orientation);
+}
+
+void VpsDetector::process_frame()
+{  
+    ROS_INFO("process_frame begin!!!!!!!!!!!!!!!!!!!!!!!!!");
+    
+    //调整图像尺寸
+    img_decode(m_frame, m_frame_input, m_delta_x, m_delta_y);
+ 
+    //adjust img size feed to model
+    //cv::imshow("before",m_frame_input);
+    //save_img("fuck", m_frame_input);
+    imrotate(m_frame_input,m_frame_input,0);
+
+    //trick
+    cv::resize(m_frame_input, m_frame_input, cv::Size(300, 300));    
+    //cv::imshow("after",m_frame_input);
+    //cv::waitKey(0);
+
+    //just for test
+    //m_frame_input = cv::imread("/home/nano/suchang/frame1203.jpeg", CV_LOAD_IMAGE_COLOR);
+    //cv::imshow("input",m_frame_input);
+    //cv::waitKey(100);
+    
+    //更新车身姿态信息,模型输入图片尺寸信息,以便后续不同坐标系内的坐标转换
+    update_carpose();
+
+    //imrotate(src_frame, frame_input,0);
+
+    //推理
+    //{"park0"}
+    std::vector<BBoxInfo> free_park_boxes;
+    std::vector<BBoxInfo> non_free_park_boxes;
+    std::vector<BBoxInfo> boxes_info = m_yolo_helper.do_inference(m_frame_input);
+
+    //
+    get_nonfree_parks(boxes_info,non_free_park_boxes);
+
+    //
+    get_free_park_boxes(boxes_info,non_free_park_boxes,free_park_boxes);
+    process_bbox(free_park_boxes);
+
+    m_p_carpark_mgr->record_parkinfo_in_this_frame();//记得处理完每一帧图像保存信息
+
+    pub_parkobj_msg();
+    
+    cv::Mat frame_show = m_frame_input.clone();
+    bool eff = draw_park_on_img(frame_show);
+
+    if(eff)
+    {
+        pub_img(frame_show);
+        save_img("sucess.jpg",m_frame_input);
+        save_img("sucess_detected.jpg",frame_show);
+    }
+    else
+    {
+        save_img("fail.jpg",m_frame_input);
+    }
+    
+    //cv::imshow("vps_show", frame_show);
+    //cv::waitKey(100); //https://stackoverflow.com/questions/5217519/what-does-opencvs-cvwaitkey-function-do
+
+    ROS_INFO("process_frame end!!!!!!!!!!!!!!!!!!!!!!!!!");
 }
 
 void VpsDetector::on_recv_frame(const sensor_msgs::Image &image_source)
 {
-      ROS_INFO("VpsDetector:on_recv_frame begin!");
+      ROS_INFO("VpsDetector:on_recv_frame begin!!!!!!!!!!!!!!!!!!!!!!!!!");
+      
+      //cout<<"fuck!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
+      m_frame_counts += 1;
+      if(m_frame_counts / m_frame_counts_divide > 100000)
+      {
+            m_frame_counts = 0;
+      }
+      if(m_frame_counts % m_frame_counts_divide != 0 && m_frame_counts != 1)
+      {
+            //cout<<m_frame_counts<<','<<m_frame_counts_divide<<endl;
 
-      //
+            //ROS_INFO("return,m_frame_counts=%ld,m_frame_counts_divide=%d",m_frame_counts,m_frame_counts_divide);
+            return;
+      }
+ 
       m_parkobj_msg.header = image_source.header;
       
       cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_source, "bgr8"); 
       m_frame = cv_image->image;
 
-      //调整图像尺寸
-      img_decode(m_frame, m_frame_input, m_delta_x, m_delta_y);
-
-      //更新车身姿态信息,模型输入图片尺寸信息,以便后续不同坐标系内的坐标转换
-      update_carpose();
-
-      //imrotate(src_frame, frame_input,0);
-
-      //推理
-      //{"background","free_park", "forbid_park", "incar_park"};
-      std::vector<BBoxInfo> free_park_boxes;
-      std::vector<BBoxInfo> non_free_park_boxes;
-      std::vector<BBoxInfo> boxes_info = m_yolo_helper.do_inference(m_frame_input);
+      process_frame();
       
-      //
-      get_nonfree_parks(boxes_info,non_free_park_boxes);
+      ROS_INFO("VpsDetector:on_recv_frame end!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+}
 
-      //
-      get_free_park_boxes(boxes_info,non_free_park_boxes,free_park_boxes);
-      
-      process_bbox(free_park_boxes);
 
-      m_p_carpark_mgr->record_parkinfo_in_this_frame();//记得处理完每一帧图像保存信息
-      
-      pub_parkobj_msg();
+void VpsDetector::test()
+{
+    cout<<"test begin"<<endl;
+    
+    m_pose.pose.position.x = 1.0;
+    m_pose.pose.position.y = 1.0;
+    m_pose.pose.position.z = 1.0;
+    m_pose.pose.orientation.x = 2.0;
+    m_pose.pose.orientation.y = 3.0;
+    m_pose.pose.orientation.z = 4.0;
+    m_pose.pose.orientation.w = 1.0;
+     
+    //for(int i =0;i<4;i++)
+    {
+        std::ostringstream img_name;
+        //img_name << "/home/nano/Downloads/test_img/park" << 0<<".jpg";
+        img_name << "/home/nano/suchang/fuck_raw.jpg";
+        
+        cv::Mat test_img = cv::imread(img_name.str(), CV_LOAD_IMAGE_COLOR);
+        if(test_img.empty())
+        {
+            return;
+        }
+         
+        m_frame = test_img;
 
-      cv::Mat frame_show = m_frame_input.clone();
-      draw_park_on_img(frame_show);
+        process_frame(); 
+    }
 
-      pub_img(frame_show);
-
-      cv::imshow("vps_show", frame_show);
-      cv::waitKey(10); //https://stackoverflow.com/questions/5217519/what-does-opencvs-cvwaitkey-function-do
-
-      ROS_INFO("VpsDetector:on_recv_frame end!");
+    cout<<"test end"<<endl;
 }
 
 void VpsDetector::get_nonfree_parks(const std::vector<BBoxInfo>& boxes_info,std::vector<BBoxInfo>& non_free_park_boxes)
@@ -485,6 +674,8 @@ void VpsDetector::get_nonfree_parks(const std::vector<BBoxInfo>& boxes_info,std:
           cout<<"class_name:"<<m_yolo_helper.m_inferNet->getClassName(b.label)<<endl; 
         
           string class_name =  m_yolo_helper.m_inferNet->getClassName(b.label);
+          
+          //模型暂时不支持检测forbid_park/incar_park  逻辑先保留
           if(class_name == "forbid_park" || class_name == "incar_park")
           {
               non_free_park_boxes.push_back(b);
@@ -500,10 +691,11 @@ void VpsDetector::get_free_park_boxes(const std::vector<BBoxInfo>& boxes_info,co
       for (BBoxInfo b : boxes_info)
       {
           string class_name =  m_yolo_helper.m_inferNet->getClassName(b.label);
-          if(class_name == "free_park")
+          if(class_name == "park0")
           {
               if(is_effective_park(non_free_park_boxes, b.box, 0.6))
               {
+                  ROS_INFO("%s-%d-find free parks",__FUNCTION__,__LINE__);
                   free_park_boxes.push_back(b);
               }
           }
@@ -511,13 +703,19 @@ void VpsDetector::get_free_park_boxes(const std::vector<BBoxInfo>& boxes_info,co
 }
 
 //在图片上绘制出车位框 
-void VpsDetector::draw_park_on_img(cv::Mat &img)
+bool VpsDetector::draw_park_on_img(cv::Mat &img)
 {
+    bool effctive = false;
+    
     vector<const ParkInfo* > park_info;
     m_p_carpark_mgr->get_effective_parks(park_info);
 
     for(auto p : park_info)
     {
+        //ROS_INFO("find effetive park!");
+
+        effctive = true;
+        
         cv::Point point1(p->points_in_img[0],p->points_in_img[1]);
         cv::Point point2(p->points_in_img[2],p->points_in_img[3]);
         cv::Point point3(p->points_in_img[4],p->points_in_img[5]);
@@ -534,16 +732,29 @@ void VpsDetector::draw_park_on_img(cv::Mat &img)
         cv::rectangle(img, cv::Rect(cv::Point(p->points_in_img[0],p->points_in_img[1]- label_size.height),cv::Size(label_size.width, label_size.height + base_line)),cv::Scalar(255,255,0),CV_FILLED);
         cv::putText(img,label,point1,cv::FONT_HERSHEY_SIMPLEX,0.8,cv::Scalar(0,0,0));
     }
+
+    return effctive;
 }
 
 
 void VpsDetector::pub_img(const cv::Mat& detect_show)
 {
-      sensor_msgs::ImagePtr roi_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", detect_show).toImageMsg();
+      LOG_FUNC_BEGIN
+
+      std::ostringstream img_name;
+      img_name << "frame" << m_seq<<".jpg";
+      //save_img(img_name.str(), detect_show);
+      
+      //cout<<"pub_img:"<<m_seq<<endl;
+      cv_bridge::CvImage  cv_img(std_msgs::Header(), "bgr8", detect_show);
+      sensor_msgs::ImagePtr roi_msg = cv_img.toImageMsg();
       roi_msg->header.seq = m_seq++;
       roi_msg->header.frame_id = "vps image";
       roi_msg->header.stamp = ros::Time::now();
       m_pub_image_raw.publish(roi_msg);
+      
+      
+      LOG_FUNC_END
 }
 
 //get iou ratio between two bndingbox
@@ -583,7 +794,7 @@ bool VpsDetector::is_effective_park(const std::vector<BBoxInfo>& notfreebox_list
 
         string class_name =  m_yolo_helper.m_inferNet->getClassName(box_info.label);
         
-        if(class_name != "free_park") // forbidden_park or incar_park
+        if(class_name != "park0") // forbidden_park or incar_park
         {
             iou =  get_box_overlap_ratio(box_info.box,freepark_box);
             if(iou>iou_thresold)
@@ -593,7 +804,7 @@ bool VpsDetector::is_effective_park(const std::vector<BBoxInfo>& notfreebox_list
             }
         }
     }
-    
+
     return effective; 
 }
 
@@ -602,19 +813,24 @@ void VpsDetector::img_decode(cv::Mat raw_data, cv::Mat &dst_img,float &dst_delta
 {
     int raw_w = raw_data.cols;
     int raw_h = raw_data.rows;
-    //std::cout<<"raw_w:"<<raw_w<<"raw_h:"
+    std::cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
+    cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
+    cout<<"m_yulan_w"<<m_yulan_w<<"m_yulan_h"<<endl;
+    save_img("fuck_raw.jpg", raw_data);
     // get raw_data from yulan device
     if((m_yulan_w<=raw_w)&&(m_yulan_h<=raw_h))
     {
+        cout<<"cut img"<<endl;
         dst_img=raw_data(cv::Rect(0,0,m_yulan_w,m_yulan_h));
         dst_delta_x = m_delta_x;
         dst_delta_y = m_delta_y;
-    }else// get raw_data from simulator
-    {
-        dst_img = raw_data;
-        dst_delta_x = 24.0/raw_w;
-        dst_delta_y = 30.0/raw_h;
     }
+
+    save_img("fuck_cut.jpg",dst_img);
+    cout<<"dst_w"<<dst_img.cols<<"dst_h"<<dst_img.rows<<endl;
+    
+    //cv::imshow("raw_img",dst_img);
+    //cv::waitKey(0);
 }
 
  //把图像事先调整成x*x(比如1080*960--->1080*1080)会提高性能?
@@ -660,9 +876,14 @@ void VpsDetector::expand_bndbox(cv::Rect src_rect,cv::Rect &dst_rect,float ratio
 {   
     if(ratio<0)
         return;
+
+    ROS_INFO("original bndbox (x,y,width,height):(%d,%d,%d,%d)",src_rect.x,src_rect.y,src_rect.width,src_rect.height);
     
     int baseline = src_rect.height<src_rect.width?src_rect.height:src_rect.width;
     int exp_value =std::ceil(baseline*ratio);
+
+    ROS_INFO("exp_value:%d",exp_value);
+
     dst_rect.x = src_rect.x-exp_value;
     dst_rect.x = dst_rect.x>0?dst_rect.x:0;
     dst_rect.y = src_rect.y - exp_value;
@@ -671,13 +892,20 @@ void VpsDetector::expand_bndbox(cv::Rect src_rect,cv::Rect &dst_rect,float ratio
     dst_rect.width = src_rect.width + 2* exp_value;
     dst_rect.width = (dst_rect.x + dst_rect.width)<img_w?dst_rect.width:(img_w-1-dst_rect.x);
     dst_rect.height = src_rect.height + 2*exp_value;
-    dst_rect.height = (dst_rect.y+ dst_rect.height)<img_h?dst_rect.height:(img_h-1-dst_rect.y);    
+    dst_rect.height = (dst_rect.y+ dst_rect.height)<img_h?dst_rect.height:(img_h-1-dst_rect.y);   
+
+    ROS_INFO("expand_bndbox to (x,y,width,height):(%d,%d,%d,%d)",dst_rect.x,dst_rect.y,dst_rect.width,dst_rect.height);
+    
 }
 
 //filter abnormal park anchors 
 //过滤掉一些检测错误的场景
 bool VpsDetector::park_anchor_filter(ParkAnchor src_park,cv::Point bbox_center,float thresold,float max_lw_ratio,float min_lw_ratio/*=1.0*/)
 {
+    LOG_FUNC_BEGIN
+    //ROS_INFO("thresold:%f",thresold);    
+    //ROS_INFO("%s",src_park.to_string().c_str());
+    
     float l_len,w_len,center_len,lw_ratio;
     cv::Point park_center;
     //if(4!=src_park.num)
@@ -689,16 +917,25 @@ bool VpsDetector::park_anchor_filter(ParkAnchor src_park,cv::Point bbox_center,f
     if(l_len<w_len)
         lw_ratio = 1/lw_ratio;
     if((lw_ratio<min_lw_ratio)||(lw_ratio>max_lw_ratio))
+    {
+        cout<<"unvalid h/w ratio:"<<lw_ratio
+            <<"should be between ["<<min_lw_ratio<<","<<max_lw_ratio<<"]"<<endl;
         return false;
+    }
+    
     park_center.x = (src_park.ltop.x + src_park.rbot.x)/2;
     park_center.y = (src_park.ltop.y = src_park.rbot.y)/2;
     
     center_len = get_len(bbox_center, park_center);
     if(center_len>thresold)
     {
-        //std::cout<<"Warnning: center shift is out of thresold\n";
+        std::cout<<"Warnning: center shift is out of thresold\n";
+        cout<<"center_len:"<<center_len<<endl;
+        
         return false;
     }
+
+    LOG_FUNC_END
     return true;  
 }
 
@@ -770,7 +1007,39 @@ void VpsDetector::on_pose_msg(const geometry_msgs::PoseStamped &pose_stamp)
 {
     m_pose.pose.position = pose_stamp.pose.position;
     m_pose.pose.orientation = pose_stamp.pose.orientation;
+
+    //p_atc_mapper->update(g_delta_x, g_delta_y, src_w, src_h, pos, ort);
 }
 
 
+bool VpsDetector::get_park_anchor(std::vector<cv::Point> anchor_list, ParkAnchor &dst_park, float offset)
+{
+    cv::Point v10, v32, v_merge;
+
+    if (offset < 0 || offset > 1.0)
+        return false;
+    if (4 != anchor_list.size())
+        return false;
+    // line( anchor_list[1],anchor_list[2]) //the maximun distance line
+    v10.x = anchor_list[1].x - anchor_list[0].x;
+    v10.y = anchor_list[1].y - anchor_list[0].y;
+    v32.x = anchor_list[3].x - anchor_list[2].x;
+    v32.y = anchor_list[3].y - anchor_list[2].y;
+
+    if ((v10.x * v10.x) < (v32.x * v32.x))
+    {
+        v_merge.x = ceil(v10.x + offset * (v32.x - v10.x));
+        v_merge.y = ceil(v10.y + offset * (v32.y - v10.y));
+    }
+    else
+    {
+        v_merge.x = ceil(v32.x + offset * (v10.x - v32.x));
+        v_merge.y = ceil(v32.y + offset * (v10.y - v32.y));
+    }
+    dst_park.ltop = cv::Point(anchor_list[0].x + v_merge.x, anchor_list[0].y + v_merge.y);
+    dst_park.rtop = anchor_list[0];
+    dst_park.rbot = anchor_list[2];
+    dst_park.lbot = cv::Point(anchor_list[2].x + v_merge.x, anchor_list[2].y + v_merge.y);
+    return true;
+}
 

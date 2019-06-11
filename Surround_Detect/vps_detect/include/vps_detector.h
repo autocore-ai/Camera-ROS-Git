@@ -25,38 +25,24 @@ using namespace std;
 #include "auto_yulan_sdk.h"
 #include "trt_utils.h"
 
-/*
-struct Box
-{
-    float x0;
-    float y0;
-    float x1;
-    float y1;
-    int class_idx;
-    float score;
-};
-
-struct BBox
-{
-    float x1, y1, x2, y2;
-};
-
-struct BBoxInfo
-{
-    BBox box;
-    int label;
-    int classId; 
-    float prob;
-};
-*/
-
-
 struct ParkAnchor
 {
     cv::Point ltop;
+    cv::Point lbot;
     cv::Point rtop;
     cv::Point rbot;
-    cv::Point lbot;
+   
+    std::string to_string()
+    {
+        std::ostringstream stringStream;
+        stringStream << "park anchor as below\n";
+        stringStream << "ltop:"<<ltop.x<<","<<ltop.y<<'\n';
+        stringStream << "lbot:"<<lbot.x<<","<<lbot.y<<'\n';
+        stringStream << "rtop:"<<rtop.x<<","<<rtop.y<<'\n';
+        stringStream << "rbot:"<<rbot.x<<","<<rbot.y<<'\n';
+
+        return stringStream.str();   
+    }
 };
 
 class CarParkMgr;
@@ -68,6 +54,8 @@ public:
     ~VpsDetector();
 
     void init(int argc,char **argv);    
+
+    void test();
 private:
     //
     void on_pose_msg(const geometry_msgs::PoseStamped &pose_stamp);
@@ -75,7 +63,9 @@ private:
     void update_carpose();
     //
     void on_recv_frame(const sensor_msgs::Image &image_source);
-
+    //
+    void process_frame();
+    //
     void init_ros(int argc,char **argv);
 private:
     //当前待处理图像
@@ -86,7 +76,7 @@ private:
     YoloHelper m_yolo_helper;
 
     ATCMapper*      m_p_atc_mapper=nullptr;
-    ATCPark*        m_p_park=nullptr;  
+    ParkInfo*        m_p_park=nullptr;  
     //ATCParkTracker* m_park_tracker = nullptr;
     CarParkMgr*     m_p_carpark_mgr = nullptr;
     
@@ -119,7 +109,7 @@ private:
     float  m_delta_y = 0.0201; //yulan: 0.0201 simu 0.0287 
  private:
     //在图片上绘制出车位框 
-    void draw_park_on_img(cv::Mat &img);
+    bool draw_park_on_img(cv::Mat &img);
     
     //
     void get_nonfree_parks(const std::vector<BBoxInfo>& boxes_info,std::vector<BBoxInfo>& non_free_park_boxes);
@@ -156,7 +146,7 @@ private:
 
 private:
     //
-    void get_lines(const cv::Mat& roi_img,std::vector<cv::Vec4i>& lines);
+    void get_lines(const cv::Mat& roi_img,std::vector<cv::Vec4i>& lines,int box_idx);
     //
     bool park_edge_detect(cv::Mat src_img, cv::Mat &dst_img);
 
@@ -195,6 +185,26 @@ private:
 
     //
     void insert_crossover(std::vector<cv::Point> &crossover_list,cv::Point src_point);
+
+    // 
+    bool get_park_anchor(std::vector<cv::Point> anchor_list, ParkAnchor &dst_park, float offset);
+    
+//for debug
+public:
+    long m_frame_counts = 0;
+    int m_frame_counts_divide = 60;
+    bool m_test = false;
+
+    float m_bbox_expand_ratio = 0.1;
+
+    string m_save_dir = "/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/detections/";
+    void save_img(const string& img_name,const cv::Mat& img);
+//park anchor filter param
+private:
+    float m_thresold = 200.0;
+    float m_max_lw_ratio = 4.5;
+    float m_min_lw_ratio = 1.2;
+
 };
 
 #endif
