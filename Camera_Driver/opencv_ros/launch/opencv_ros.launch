@@ -1,0 +1,11 @@
+<launch>
+	<!-- declare arguments with default values -->
+    	<arg name="image_source_topic" default="/usb_cam/image_raw"/>
+        <arg name="test_img"/>
+      
+	    <node pkg="opencv_ros" type="opencv_ros" name="opencv_ros" args="" output="screen">
+	    <param name="test_img" type="str" value="$(arg test_img)"/>
+       		
+	    <param name="image_source_topic" value="$(arg image_source_topic)"/>	
+	</node>
+</launch>
