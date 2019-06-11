@@ -13,6 +13,8 @@ $ catkin_make
 2.start traffic light detect
 
 $ source devel/setup.bash
+$ cp -rf src/Camera-ROS-Git/Front_Detect/traffic_detect/yolo_model/config src
+$ cp -rf src/Camera-ROS-Git/Front_Detect/traffic_detect/yolo_model/data src
 $ roslaunch traffic_detect traffic_detect.launch
 
 
