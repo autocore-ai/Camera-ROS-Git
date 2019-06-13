@@ -172,7 +172,7 @@ void DsImage::showImage() const
 {
     cv::namedWindow(m_ImageName);
     cv::imshow(m_ImageName.c_str(), m_MarkedImage);
-    cv::waitKey(0);
+    cv::waitKey(100);
 }
 
 void DsImage::saveImageJPEG(const std::string& dirPath) const

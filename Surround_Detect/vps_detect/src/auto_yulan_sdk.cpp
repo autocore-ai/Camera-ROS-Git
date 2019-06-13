@@ -26,7 +26,7 @@ void ATCMapper::convert_to_carw(ParkInfo* p_new_park)
 {
    // this->m_atc_park= p_new_park;
     cout<<"m_centerx:"<<m_center_x<<",m_centery:"<<m_center_y<<endl;
-    ROS_ERROR("centerx:%f,centery:%f",m_center_x,m_center_y);
+    //ROS_ERROR("centerx:%f,centery:%f",m_center_x,m_center_y);
     for(int i =0;i<4;i++)
     {
     	int x_idx = 2*i;

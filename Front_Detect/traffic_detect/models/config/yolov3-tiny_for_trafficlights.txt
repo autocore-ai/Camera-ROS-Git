@@ -31,9 +31,9 @@
 # labels_file_path : Text file with a list of object class labels
 
 --network_type=yolov3-tiny
---config_file_path=data/yolov3-tiny_trafficlights.cfg
---wts_file_path=data/yolov3-tiny_trafficlights_final.weights
---labels_file_path=data/trafficlights.names
+--config_file_path=/home/nano/suchang/src/Camera-ROS-Git/Front_Detect/traffic_detect/models/data/yolov3-tiny_trafficlights.cfg
+--wts_file_path=/home/nano/suchang/src/Camera-ROS-Git/Front_Detect/traffic_detect/models/data/yolov3-tiny_trafficlights_final.weights
+--labels_file_path=/home/nano/suchang/src/Camera-ROS-Git/Front_Detect/traffic_detect/models/data/trafficlights.names
 
 #Optional config params
 # precision : Inference precision of the network

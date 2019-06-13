@@ -1,8 +1,5 @@
 <launch>
 	<!-- declare arguments with default values -->
-	<arg name="proto_file" default="$(find traffic_detect)/models/MobileNetSSD_deploy.prototxt"/>
-	<arg name="model_file" default="$(find traffic_detect)/models/MobileNetSSD_deploy.caffemodel"/>
-	<arg name="model_name" default="mssd_300"/>
 	<arg name="roi_region" default="550,250,450,450"/>
         <arg name ="refresh_epoch" default = "10"/>
     	<arg name="image_source_topic" default="/usb_cam/image_raw"/>
@@ -12,10 +9,7 @@
         <arg name="traffic_status_topic" default="/traffic/status"/>
     	<arg name="traffic_active_topic" default="/traffic/active"/>
 
-	<node pkg="traffic_detect" type="traffic_detect_jetson" name="whatever" args="--flagfile=config/yolov3-tiny_for_trafficlights.txt" output="screen">
-	<param name="proto_file" value="$(arg proto_file)"/>
-	<param name="model_file" value="$(arg model_file)"/>
-	<param name="model_name" value="$(arg model_name)"/>
+	<node pkg="traffic_detect" type="traffic_detect_jetson" name="whatever" args="--flagfile=$(find traffic_detect)/models/config/yolov3-tiny_for_trafficlights.txt" output="screen">
 	<param name ="roi_region" value="$(arg roi_region)"/>
         <param name ="refresh_epoch" value ="$(arg refresh_epoch)"/>     
         <param name="image_source_topic" value="$(arg image_source_topic)"/>

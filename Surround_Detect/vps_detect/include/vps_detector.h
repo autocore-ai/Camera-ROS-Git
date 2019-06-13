@@ -100,6 +100,10 @@ private:
     ros::Publisher  m_pub_vps_active;    //心跳
     std::string     m_vps_active_topic;
 private:    
+    
+    //
+    int m_img_mode = 0;//0:yulan img 1:simulation img
+
     //裕兰环视车位数据集图片尺寸
     int  m_yulan_w = 810;
     int  m_yulan_h = 1080;

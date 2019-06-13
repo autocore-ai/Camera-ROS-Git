@@ -70,7 +70,7 @@
 --test_images=data/test_images.txt
 #--batch_size=4
 #--do_benchmark=true
-#--view_detections=true
+--view_detections=true
 --save_detections=true
 --save_detections_path=/home/nano/suchang/src/Camera-ROS-Git/Surround_Detect/vps_detect/models/data/detections/
 #--decode=false

@@ -33,7 +33,6 @@ target_link_libraries(opencv_ros
   ${OpenCV_LIBS}
 )
 
-
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(

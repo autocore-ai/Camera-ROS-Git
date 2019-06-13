@@ -75,21 +75,20 @@ void CarParkMgr::add_carpark(ParkInfo* p_park)
 //在处理完一帧图片最后调用
 void CarParkMgr::record_parkinfo_in_this_frame()
 {
+    for(auto parkid_lastframe : m_carpark_id_in_last_frame)
+    {       
+        ROS_ERROR("check last frame park %d",parkid_lastframe);
+        vector<int>::iterator it = find(m_carpark_id_in_curr_frame.begin(), m_carpark_id_in_curr_frame.end(), parkid_lastframe);
+        if(it == m_carpark_id_in_curr_frame.end())
+        {
+            m_carparks[parkid_lastframe]->counts = 1; 
+            ROS_ERROR("RESET %d",parkid_lastframe);
+        }
+    }
+
     m_carpark_id_in_last_frame = m_carpark_id_in_curr_frame;
-
-    ROS_INFO("parks in last frame before clear!!!!!!!!!!!!!!!!!");
-    for(auto id : m_carpark_id_in_last_frame)
-    {
-        ROS_INFO("park%d",id);
-    }
-    
+  
     m_carpark_id_in_curr_frame.clear();
-
-    ROS_INFO("parks in last frame!!!!!!!!!!!!!!!!!");
-    for(auto id : m_carpark_id_in_last_frame)
-    {
-        ROS_INFO("park%d",id);
-    }
 }
 
 //检测这个车位在连续几帧图像里出现.
@@ -243,10 +242,10 @@ void CarParkMgr::get_effective_parks(vector<const ParkInfo* >& park_info)
     {  
         if(park->id != -1)
         {
-            ROS_INFO("found effective park %s",park->statics().c_str());
+            //ROS_ERROR("found effective park %s",park->statics().c_str());
             if(park->counts >= m_min_frame)
             {
-                //ROS_INFO("found effective park %s",park->statics().c_str());
+                ROS_ERROR("found effective park %s",park->statics().c_str());
                 park_info.push_back(park);
             }
         }

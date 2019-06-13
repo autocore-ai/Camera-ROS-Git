@@ -410,7 +410,7 @@ void VpsDetector::process_bbox(const std::vector<BBoxInfo>& free_park_boxes)
           box_idx += 1;
           if (lines.size() < 1)
           {
-              std::cout<<"warnning can not detect lines\n";
+              ROS_WARN("warnning can not detect lines");
               continue;
           }   
 
@@ -487,6 +487,8 @@ void VpsDetector::pub_parkobj_msg()
             cout<<park_obj.x1<<","<<park_obj.y1<<endl;
             cout<<park_obj.x2<<","<<park_obj.y2<<endl;
             cout<<park_obj.x3<<","<<park_obj.y3<<endl;
+
+            ROS_ERROR("(%f,%f),(%f,%f),(%f,%f),(%f,%f)",park_obj.x0,park_obj.y0,park_obj.x1,park_obj.y1,park_obj.x2,park_obj.y2,park_obj.x3,park_obj.y3);
             m_parkobj_msg.obj.push_back(park_obj);
         }
 
@@ -525,15 +527,29 @@ void VpsDetector::update_carpose()
 {
     //only part of the img contains park.because we handle img from 810*1080-->1080*1080-->300*300
     //810*1080-->1080*1080 we prefill (127,127,127)
+    //841*1043-->1043*1043-->300*300
     int img_w = m_frame_input.cols;
     int img_h = m_frame_input.rows;
 
-    float effective_w = img_w * (810./1080.);
+    if(m_img_mode == 0)
+    {
+        float effective_w = img_w * (810./1080.);
     
-    float dx = m_delta_x * (1080.0/300.0);
-    float dy = m_delta_y * (1080.0/300.0);
+        float dx = m_delta_x * (1080.0/300.0);
+        float dy = m_delta_y * (1080.0/300.0);
 
-    m_p_atc_mapper->update(dx,dy,effective_w,img_h,m_pose.pose.position,m_pose.pose.orientation);
+        m_p_atc_mapper->update(dx,dy,effective_w,img_h,m_pose.pose.position,m_pose.pose.orientation);
+    }
+    else if(m_img_mode == 1)
+    {
+        float effective_w = img_w * (841./1043.);
+        
+        float dx = m_delta_x * (1043.0/300.0);
+        float dy = m_delta_y * (1043.0/300.0);
+
+        m_p_atc_mapper->update(dx,dy,effective_w,img_h,m_pose.pose.position,m_pose.pose.orientation);
+    }
+
 }
 
 void VpsDetector::process_frame()
@@ -544,20 +560,13 @@ void VpsDetector::process_frame()
     img_decode(m_frame, m_frame_input, m_delta_x, m_delta_y);
  
     //adjust img size feed to model
-    //cv::imshow("before",m_frame_input);
-    //save_img("fuck", m_frame_input);
     imrotate(m_frame_input,m_frame_input,0);
 
     //trick
     cv::resize(m_frame_input, m_frame_input, cv::Size(300, 300));    
-    //cv::imshow("after",m_frame_input);
-    //cv::waitKey(0);
-
-    //just for test
-    //m_frame_input = cv::imread("/home/nano/suchang/frame1203.jpeg", CV_LOAD_IMAGE_COLOR);
     //cv::imshow("input",m_frame_input);
-    //cv::waitKey(100);
-    
+    //cv::waitKey(1000);
+
     //更新车身姿态信息,模型输入图片尺寸信息,以便后续不同坐标系内的坐标转换
     update_carpose();
 
@@ -594,8 +603,8 @@ void VpsDetector::process_frame()
         save_img("fail.jpg",m_frame_input);
     }
     
-    //cv::imshow("vps_show", frame_show);
-    //cv::waitKey(100); //https://stackoverflow.com/questions/5217519/what-does-opencvs-cvwaitkey-function-do
+    cv::imshow("pub", frame_show);
+    cv::waitKey(100); //https://stackoverflow.com/questions/5217519/what-does-opencvs-cvwaitkey-function-do
 
     ROS_INFO("process_frame end!!!!!!!!!!!!!!!!!!!!!!!!!");
 }
@@ -604,7 +613,6 @@ void VpsDetector::on_recv_frame(const sensor_msgs::Image &image_source)
 {
       ROS_INFO("VpsDetector:on_recv_frame begin!!!!!!!!!!!!!!!!!!!!!!!!!");
       
-      //cout<<"fuck!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
       m_frame_counts += 1;
       if(m_frame_counts / m_frame_counts_divide > 100000)
       {
@@ -612,9 +620,6 @@ void VpsDetector::on_recv_frame(const sensor_msgs::Image &image_source)
       }
       if(m_frame_counts % m_frame_counts_divide != 0 && m_frame_counts != 1)
       {
-            //cout<<m_frame_counts<<','<<m_frame_counts_divide<<endl;
-
-            //ROS_INFO("return,m_frame_counts=%ld,m_frame_counts_divide=%d",m_frame_counts,m_frame_counts_divide);
             return;
       }
  
@@ -695,7 +700,7 @@ void VpsDetector::get_free_park_boxes(const std::vector<BBoxInfo>& boxes_info,co
           {
               if(is_effective_park(non_free_park_boxes, b.box, 0.6))
               {
-                  ROS_INFO("%s-%d-find free parks",__FUNCTION__,__LINE__);
+                  //ROS_INFO("%s-%d-find free parks",__FUNCTION__,__LINE__);
                   free_park_boxes.push_back(b);
               }
           }
@@ -739,7 +744,7 @@ bool VpsDetector::draw_park_on_img(cv::Mat &img)
 
 void VpsDetector::pub_img(const cv::Mat& detect_show)
 {
-      LOG_FUNC_BEGIN
+      cout<<"pub_img"<<endl;
 
       std::ostringstream img_name;
       img_name << "frame" << m_seq<<".jpg";
@@ -753,8 +758,6 @@ void VpsDetector::pub_img(const cv::Mat& detect_show)
       roi_msg->header.stamp = ros::Time::now();
       m_pub_image_raw.publish(roi_msg);
       
-      
-      LOG_FUNC_END
 }
 
 //get iou ratio between two bndingbox
@@ -813,21 +816,34 @@ void VpsDetector::img_decode(cv::Mat raw_data, cv::Mat &dst_img,float &dst_delta
 {
     int raw_w = raw_data.cols;
     int raw_h = raw_data.rows;
-    std::cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
-    cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
-    cout<<"m_yulan_w"<<m_yulan_w<<"m_yulan_h"<<endl;
-    save_img("fuck_raw.jpg", raw_data);
+
+    //std::cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
+    //cout<<"raw_w:"<<raw_w<<"raw_h:"<<raw_h<<endl;
+    //cout<<"m_yulan_w"<<m_yulan_w<<"m_yulan_h"<<endl;
+    save_img("raw.jpg", raw_data);
+
     // get raw_data from yulan device
     if((m_yulan_w<=raw_w)&&(m_yulan_h<=raw_h))
     {
-        cout<<"cut img"<<endl;
         dst_img=raw_data(cv::Rect(0,0,m_yulan_w,m_yulan_h));
         dst_delta_x = m_delta_x;
         dst_delta_y = m_delta_y;
+
+        m_img_mode = 0;
+        ROS_INFO("cut img width*hight from %d*%d to %d*%d,",raw_w,raw_h,dst_img.cols,dst_img.rows);
+    }
+    else // get raw_data from simulator
+    {
+        dst_img = raw_data;
+        dst_delta_x = 24.0 / raw_w;
+        dst_delta_y = 30.0 / raw_h;
+        
+        m_img_mode = 1;
+        ROS_WARN("simulation img size:%d*%d",raw_w,raw_h);
     }
 
-    save_img("fuck_cut.jpg",dst_img);
-    cout<<"dst_w"<<dst_img.cols<<"dst_h"<<dst_img.rows<<endl;
+    save_img("cut.jpg",dst_img);
+    //cout<<"dst_w"<<dst_img.cols<<"dst_h"<<dst_img.rows<<endl;
     
     //cv::imshow("raw_img",dst_img);
     //cv::waitKey(0);
