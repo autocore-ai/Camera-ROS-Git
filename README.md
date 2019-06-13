@@ -13,8 +13,6 @@ $ catkin_make
 2.start traffic light detect
 
 $ source devel/setup.bash
-$ cp -rf src/Camera-ROS-Git/Front_Detect/traffic_detect/yolo_model/config src
-$ cp -rf src/Camera-ROS-Git/Front_Detect/traffic_detect/yolo_model/data src
 $ roslaunch traffic_detect traffic_detect.launch
 
 
@@ -28,5 +26,5 @@ $ roslaunch vps_detect vps_detect.launch
 5.start cameara driver
 
 $ source devel/setup.bash
-$ roslaunch usb_cam_detect usb_cam-test.launch
+$ roslaunch opencv_ros opencv_ros.launch
 
