@@ -33,6 +33,7 @@ class DsImage
 {
 public:
     DsImage();
+    DsImage(bool simu,const cv::Mat& image_org);
     DsImage(const cv::Mat& image_org, const int& inputH, const int& inputW);
     DsImage(const std::string& path, const int& inputH, const int& inputW);
     int getImageHeight() const { return m_Height; }

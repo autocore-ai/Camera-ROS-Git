@@ -16,7 +16,7 @@
 #include <ros/ros.h>
 
 using namespace std;
-
+using namespace cv;
 
 YoloHelper::YoloHelper(/* args */)
 {
@@ -73,19 +73,28 @@ void YoloHelper::parse_config_params(int argc, char** argv)
     ROS_INFO("m_saveDetectionsPath:%s",m_saveDetectionsPath.c_str());
 }
    
-std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org)
+std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org,bool simu)
 {
     //std::vector<DsImage> dsImages;
     dsImages.clear();
-
-    dsImages.emplace_back(image_org, m_inferNet->getInputH(),m_inferNet->getInputW());
-    cv::Mat trtInput = blobFromDsImages(dsImages, m_inferNet->getInputH(), m_inferNet->getInputW());
+    cv::Mat trtInput;
     
+    if(simu)
+    {
+        return judge_red_yellow_green(image_org);
+    }
+    //else
+    {
+        dsImages.emplace_back(image_org, m_inferNet->getInputH(),m_inferNet->getInputW());
+        trtInput = blobFromDsImages(dsImages, m_inferNet->getInputH(), m_inferNet->getInputW());
+    }
+
+
     double inferElapsed = 0;
     struct timeval inferStart, inferEnd;
     gettimeofday(&inferStart, NULL);
 
-    m_inferNet->doInference(trtInput.data, dsImages.size());
+    m_inferNet->doInference(trtInput.data,dsImages.size());
     
     gettimeofday(&inferEnd, NULL);
     inferElapsed += ((inferEnd.tv_sec - inferStart.tv_sec) + (inferEnd.tv_usec - inferStart.tv_usec) / 1000000.0) * 1000;
@@ -141,4 +150,168 @@ cv::Mat YoloHelper::get_marked_image(int imageIndex)
 
     return curImage.get_marked_image();
 }
+
+
+string YoloHelper::type2str(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
+
+
+float YoloHelper::get_percentage(Mat img_hsv,
+                           int iLowH,
+                           int iHighH,
+                           int iLowS, 
+                           int iHighS,
+                           int iLowV,
+                           int iHighV)
+{
+    
+    Mat imgThresholded;
+    inRange(img_hsv, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThresholded); //Threshold the image
+
+    //cout<<imgThresholded.rows<<","<<imgThresholded.cols<<endl;
+    string ty =  type2str( imgThresholded.type() );
+    //printf("Matrix: %s %dx%d \n", ty.c_str(), imgThresholded.cols, imgThresholded.rows );
+
+    int counts = 0;
+    for(int y = 0; y < imgThresholded.rows; y++)
+    {
+        for(int x = 0; x < imgThresholded.cols; x++)
+        {
+            int pixel = (int)imgThresholded.at<uchar>(y,x);
+            if ( pixel == 255)
+            {
+                 counts++;
+            }
+        }
+    }
+    //cout<<"counts="<<counts<<endl; 
+    float percentage = (float)counts/(imgThresholded.cols * imgThresholded.rows);
+    //cout<<"percentage="<<percentage<<endl;
+
+    //im_show("img_hsv",imgThresholded);
+    return percentage;
+}
+
+int YoloHelper::judge_lights_color(cv::Mat test_img)
+{
+     cv::resize(test_img, test_img, cv::Size(150,300) );
+     //im_show("test_img",test_img);
+    
+    int src_w = test_img.cols;
+    int src_h = test_img.rows;
+    int roi_x = 0 * src_w;
+    int roi_y = 0 * src_h;
+    int roi_w = 1 * src_w;
+    int roi_h = 1 * src_h;
+    
+    cv::Rect roi(roi_x, roi_y, roi_w, roi_h); 
+    cv::Mat roi_img  = test_img(roi);
+
+    //im_show("roi_img",roi_img);
+    //waitKey(0);
+
+    //因为我们读取的是彩色图，直方图均衡化需要在HSV空间做
+    Mat img_hsv;
+    cvtColor(roi_img,img_hsv,CV_BGR2HSV);
+    vector<Mat> hsvSplit;
+    split(img_hsv, hsvSplit);
+    equalizeHist(hsvSplit[2],hsvSplit[2]);
+    merge(hsvSplit,img_hsv);
+
+   int iLowH = 0;
+   int iHighH = 10;
+ 
+   int iLowS = 43; 
+   int iHighS = 255;
+ 
+   int iLowV = 46;
+   int iHighV = 255;
+
+   float r_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
+
+   iLowH = 35;
+   iHighH = 77;
+ 
+   iLowS = 43; 
+   iHighS = 255;
+ 
+   iLowV = 46;
+   iHighV = 255;
+
+   float g_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
+
+   iLowH = 26;
+   iHighH = 34;
+   float y_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
+    
+   cout<<r_percent<<","<<g_percent<<","<<y_percent<<endl;
+   waitKey(100);
+
+   if(r_percent < 0.01 && g_percent < 0.01 && y_percent < 0.01 )
+   {
+        cout<<"background"<<endl;
+        return Color::background;
+   }
+   else if(r_percent > 0.03 || ((r_percent > 2*g_percent) && (r_percent > 2*y_percent)))
+   {
+        cout<<"red"<<endl;
+        return Color::red;
+   }
+   else if(g_percent > 0.03 || ((g_percent > 2*r_percent) && (g_percent > 2*y_percent)))
+   {
+        cout<<"green"<<endl;
+        return Color::green;
+   }
+   else if(y_percent > 0.03 || ((y_percent > 2*r_percent) && (y_percent > 2*g_percent)))
+   {
+        cout<<"yellow"<<endl;
+        return Color::yellow;
+   }
+   else
+   {
+        cout<<"background"<<endl;
+        return Color::background;
+   }
+}
+
+int YoloHelper::judge_lights_color(string full_imgfile)
+{
+    cv::Mat test_img = cv::imread(full_imgfile, CV_LOAD_IMAGE_COLOR);
+    return judge_lights_color(test_img);
+}
+
+std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_org)
+{
+    cout<<"judge_red_yellow_green"<<endl;
+    std::vector<BBoxInfo> vec_boxes;
+    vec_boxes.clear();
+    BBoxInfo box;
+
+    box.label = judge_lights_color(image_org);
+    
+    vec_boxes.push_back(box);
+
+    return vec_boxes;
+}
+
 

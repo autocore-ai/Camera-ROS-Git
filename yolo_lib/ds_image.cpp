@@ -37,6 +37,14 @@ DsImage::DsImage() :
     m_ImageName = "img";
 }
 
+DsImage::DsImage(bool simu,const cv::Mat& image_org)
+{
+    m_OrigImage = image_org;
+    m_OrigImage.copyTo(m_MarkedImage);
+    m_LetterboxImage = image_org;
+    cv::cvtColor(m_LetterboxImage, m_LetterboxImage, CV_BGR2RGB);
+}
+
 DsImage::DsImage(const cv::Mat& image_org, const int& inputH, const int& inputW):
     m_Height(0),
     m_Width(0),
@@ -89,8 +97,11 @@ DsImage::DsImage(const cv::Mat& image_org, const int& inputH, const int& inputW)
     // resizing
     cv::resize(m_OrigImage, m_LetterboxImage, cv::Size(resizeW, resizeH), 0, 0, cv::INTER_CUBIC);
     // letterboxing
+
+/*
     cv::copyMakeBorder(m_LetterboxImage, m_LetterboxImage, m_YOffset, m_YOffset, m_XOffset,
                        m_XOffset, cv::BORDER_CONSTANT, cv::Scalar(128, 128, 128));
+*/
     // converting to RGB
     cv::cvtColor(m_LetterboxImage, m_LetterboxImage, CV_BGR2RGB);
 }

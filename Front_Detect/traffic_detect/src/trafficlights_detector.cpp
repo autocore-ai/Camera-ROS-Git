@@ -60,13 +60,14 @@ void TrafficLightsDetector::on_recv_frame(const sensor_msgs::Image& image_source
     cv::Mat frame = cv_image->image; 
 
     set_current_frame(frame);
+/*
     bool valid = roi_region_is_valid();
     if(!valid)
     {
         ROS_INFO("invalid ROI,just return");
         return;
     }
-        
+*/        
     process_frame();
 }
 
@@ -152,6 +153,9 @@ bool TrafficLightsDetector::load_parameters()
     private_nh.param<std::string>("traffic_active_topic", m_traffic_active_topic, "/traffic/active"); 
     ROS_INFO("Setting traffic_active_topic to %s", m_traffic_active_topic.c_str());   
 
+    private_nh.param<bool>("simu_mode", m_simu_mode, false);
+    ROS_INFO("Setting simu mode to %d", m_simu_mode);
+
     return true;
 }
 
@@ -173,59 +177,139 @@ unsigned char TrafficLightsDetector::status_encode(bool go_up,bool go_left,bool 
     return code;
 }
 
+unsigned char TrafficLightsDetector::status_encode_simu()
+{
+    //3 bit means go forward,left,right,like 100 means go forward,000 means can not go forward
+    unsigned char code = 4;
+    int red = m_lights_status_simu.find_red?1:0;
+    int yellow = m_lights_status_simu.find_yellow?1:0;
+    int green = m_lights_status_simu.find_green?1:0;
+
+    printf("red=%d,yellow=%d,green=%d\n",red,yellow,green);
+    
+    if(red)
+    {
+        code = 0;
+    }
+    else if(green || yellow)
+    {
+        code = 6;
+    }
+    else 
+    {
+        code = 7;
+    }
+    
+    cout<<"code="<<(int)code<<endl;
+    
+    return code;
+    
+}
+
 //处理收到的待检测帧
 void TrafficLightsDetector::process_frame()
 {
-    m_frame_roi =  m_frame(cv::Rect(m_x,m_y,m_w,m_h));
+    m_lights_status_simu.clear();
+    m_lights_status.clear();
+    
+    //m_frame_roi =  m_frame(cv::Rect(m_x,m_y,m_w,m_h));
+    m_frame_roi =  m_frame;
+    std::vector<BBoxInfo> boxes = m_yolo_helper.do_inference(m_frame_roi,m_simu_mode);
 
-    std::vector<BBoxInfo> boxes = m_yolo_helper.do_inference(m_frame_roi);
+    cout<<"box_size="<<boxes.size()<<endl;
+    if(boxes.size() == 0)
+    {
+        ROS_WARN("has not found box");
+    }
     
     int box_idx = 0;
     for (BBoxInfo b : boxes)
     {
-        cout<<"box_idx:"<< box_idx++ << endl;
-        cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
-        cout<<"label:"<< b.label<< endl;
-        cout<<"classId:"<< b.classId <<endl;
-        cout<<"prob:"<< b.prob <<endl;
+        //cout<<"box_idx:"<< box_idx++ << endl;
+        //cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
+        //cout<<"label:"<< b.label<< endl;
+        //cout<<"classId:"<< b.classId <<endl;
+        //cout<<"prob:"<< b.prob <<endl;
         cout<<"class_name:"<<m_yolo_helper.m_inferNet->getClassName(b.label)<<endl;
 
         bool go_up,go_left,go_right;//给出对当前frame的判断           
         string class_name =  m_yolo_helper.m_inferNet->getClassName(b.label);
-        if(class_name == "stop")
+        
+        if(m_simu_mode)
         {
-            m_lights_status.go = false;
-        }
-        else if(class_name == "go")
-        {
-            m_lights_status.go = true;
-        }
-        else if(class_name == "goLeft")
-        {
-            m_lights_status.goLeft = true;
-        }
-        else if(class_name == "stopLeft")
-        {
-            m_lights_status.goLeft = false;
+            if(class_name == "background")
+            {
+                cout<<"background"<<endl;
+
+                string failed_img = "/home/nano/workspace_sc/failed/" + std::to_string(m_seq)+".png";
+                m_seq++;
+                
+                cv::imwrite(failed_img,m_frame_roi);
+                break;
+            }
+            else if(class_name == "red")
+            {
+                m_lights_status_simu.find_red = true;
+                break;
+            }
+            else if(class_name == "yellow")
+            {
+                m_lights_status_simu.find_yellow = true;
+                break;
+            }
+            else if(class_name == "green")
+            {
+                m_lights_status_simu.find_green = true;
+                break;
+            }
         }
         else
         {
-            ROS_INFO("not intrested class:%s",class_name.c_str());
+            if(class_name == "stop")
+            {
+                m_lights_status.go = false;
+            }
+            else if(class_name == "go")
+            {
+                m_lights_status.go = true;
+            }
+            else if(class_name == "goLeft")
+            {
+                m_lights_status.goLeft = true;
+            }
+            else if(class_name == "stopLeft")
+            {
+                m_lights_status.goLeft = false;
+            }
+            else
+            {
+                ROS_INFO("not intrested class:%s",class_name.c_str());
+            }
         }
+
     }
 
 
     //send marked img with boundingbox
     int imageIndex = 0;
+/*    
     cv::Mat img = m_yolo_helper.get_marked_image(0);
     sensor_msgs::ImagePtr roi_msg =cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
     roi_msg->header.seq = m_seq++;
     roi_msg->header.frame_id = "traffic image";
     roi_msg->header.stamp = ros::Time::now();
     pub_image_raw.publish(roi_msg);
-
+*/
     // publish traffic status code
     std_msgs::UInt8 status_msg;
-    status_msg.data = status_encode(m_lights_status.go,m_lights_status.goLeft,m_lights_status.goRight);
+    if(m_simu_mode)
+    {
+        status_msg.data = status_encode_simu();
+    }
+    else
+    {
+        status_msg.data = status_encode(m_lights_status.go,m_lights_status.goLeft,m_lights_status.goRight);
+    }
+    
     pub_status_code.publish(status_msg); 
 }

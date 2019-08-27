@@ -26,7 +26,29 @@ struct LightsStatus
     bool go=false;
     bool goLeft=false;
     bool goRight=true;
+
+    void clear()
+    {
+        go=false;
+        goLeft=false;
+        goRight=true;
+    }
 };
+
+struct LightsStatusSimu
+{
+    bool find_red = false;
+    bool find_yellow = false;
+    bool find_green = false;
+
+    void clear()
+    {
+        find_red = false;
+        find_yellow = false;
+        find_green = false;
+    }
+};
+
 
 class TrafficLightsDetector
 {
@@ -60,8 +82,9 @@ private:
     bool init_ros(int argc,char** argv);
 private:
     unsigned char status_encode(bool go_up,bool go_left,bool go_right);
+    unsigned char status_encode_simu();
 private:
-    //roi参数. 图像裁剪用.  含义:从m*n(width*high)的图片中,以(x,y)为起点,裁剪出w*h的图片:
+    //roi参数. 图像裁剪用. 含义:从m*n(width*high)的图片中,以(x,y)为起点,裁剪出w*h的图片:
     string m_roi_region;
     int m_x;int m_y;int m_w;int m_h;
 
@@ -75,6 +98,7 @@ private:
 
     //当前frame的最终分析结果
     LightsStatus m_lights_status;
+    LightsStatusSimu m_lights_status_simu;
 
 private: 
     std::string m_refresh_epoch;
@@ -94,6 +118,7 @@ private:
 
     int m_seq = 0;
 
+    bool m_simu_mode = false;
 };
 
 

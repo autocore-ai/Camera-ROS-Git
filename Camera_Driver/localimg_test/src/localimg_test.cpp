@@ -3,17 +3,17 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
 #include <stdio.h>
+#include <iostream>
 
 using namespace std;
 using namespace cv;
-
-
 
 int main(int argc,char **argv)
 {
@@ -26,37 +26,54 @@ int main(int argc,char **argv)
     private_nh.param<std::string>("image_source_topic", img_src_topic, "/usb_cam/image_raw");
     ROS_INFO("Setting img_src_topic to %s",img_src_topic.c_str());
 
-    string test_img_path;
-    private_nh.param<std::string>("test_img", test_img_path, "");
-    ROS_INFO("Setting test_img_path to %s",test_img_path.c_str());
+    string test_img_dir;
+    private_nh.param<std::string>("test_img_dir", test_img_dir, "");
+    ROS_INFO("Setting test_img_dir to %s",test_img_dir.c_str());
     
 	ros::Publisher  camera_pub = nh.advertise<sensor_msgs::Image>("/usb_cam/image_raw", 1);
 
-    //string img = "/home/nano/suchang/fuck_raw.jpg";
-	cv::Mat frame = cv::imread(test_img_path,CV_LOAD_IMAGE_COLOR);
-    if(frame.empty())
+    DIR *dir = opendir(test_img_dir.c_str());
+    if(dir == NULL)
     {
-        cout<<"empty frame:"<<test_img_path<<endl;
-        return -1;       
+        cout<<"can not open dir"<<endl;
+        return -1;
     }
-	//cv::resize(frame, frame, cv::Size(1080, 1080));  
-	//captRefrnc >> frame;
+    
+    struct dirent *files_in_dir;  // Pointer for directory entry
+    while ((files_in_dir = readdir(dir)) != NULL) 
+    {
+        bool jpg_file = (strstr(files_in_dir->d_name, "jpg") != NULL);
+        bool png_file = (strstr(files_in_dir->d_name, "png") != NULL);
+        if(!jpg_file && !png_file)
+        {
+            continue;
+        }
+           
+        cout<<files_in_dir->d_name<<endl;
+        string full_file_name = test_img_dir + '/' + files_in_dir->d_name;
+        cout<<full_file_name<<endl;
 
-	ros::Rate loop_rate(5);
-	while((nh.ok())&&(!frame.empty()))
-	//while(1)
-	{
-	    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-        msg->header.frame_id = "camera";
-	    msg->header.stamp.sec = ros::Time::now().sec;
-	    msg->header.stamp.nsec = ros::Time::now().nsec;
-        camera_pub.publish(msg);
-		
-		ros::spinOnce();
-	    loop_rate.sleep();
-           //cv::imshow("demo",frame);
-           //cv::waitKey(10);
-	   // captRefrnc >> frame;
-	}
+        cv::Mat frame = cv::imread(full_file_name,CV_LOAD_IMAGE_COLOR);
+        if(frame.empty())
+        {
+            cout<<"empty frame:"<<full_file_name<<endl;
+            return -1;       
+        }
+
+    	ros::Rate loop_rate(5);
+    	//while((nh.ok())&&(!frame.empty()))
+    	{
+    	    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
+            msg->header.frame_id = "camera";
+    	    msg->header.stamp.sec = ros::Time::now().sec;
+    	    msg->header.stamp.nsec = ros::Time::now().nsec;
+            camera_pub.publish(msg);
+    		
+    		ros::spinOnce();
+    	    loop_rate.sleep();
+    	}
+    }
+
+
 	return 0;
 }
