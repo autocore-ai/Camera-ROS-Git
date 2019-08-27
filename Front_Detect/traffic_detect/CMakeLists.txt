@@ -74,34 +74,16 @@ include_directories(
 
 
 ####### for jetson
-find_package(jetson-utils)
-find_package(jetson-inference)
+#find_package(jetson-utils)
+#find_package(jetson-inference)
 
 # CUDA and Qt4 are required
-find_package(CUDA)
+#find_package(CUDA)
 find_package(Qt4)
 
 # setup Qt4 for build
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
-
-# Find TensorRT
-find_path(TRT_INCLUDE_DIR NvInfer.h HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES include)
-if(${TRT_INCLUDE_DIR} MATCHES "TRT_INCLUDE_DIR-NOTFOUND")
-  MESSAGE(FATAL_ERROR "-- Unable to find TensorRT headers. Please set path using -DTRT_SDK_ROOT")
-else()
-  MESSAGE(STATUS "Found TensorRT headers at ${TRT_INCLUDE_DIR}")
-endif()
-
-find_library(TRT_LIBRARY_INFER nvinfer HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES lib lib64 lib/x64)
-find_library(TRT_LIBRARY_INFER_PLUGIN nvinfer_plugin HINTS ${TRT_SDK_ROOT} PATH_SUFFIXES lib lib64 lib/x64)
-if((${TRT_LIBRARY_INFER} MATCHES "TRT_LIBRARY_INFER-NOTFOUND") OR (${TRT_LIBRARY_INFER_PLUGIN} MATCHES "TRT_LIBRARY_INFER_PLUGIN-NOTFOUND"))
-  MESSAGE(FATAL_ERROR "-- Unable to find TensorRT libs. Please set path using -DTRT_SDK_ROOT")
-else()
-  set(TRT_LIBRARY ${TRT_LIBRARY_INFER} ${TRT_LIBRARY_INFER_PLUGIN})
-  MESSAGE(STATUS "Found TensorRT libs at ${TRT_LIBRARY}")
-endif()
-
 
 # Add yolo lib as subdir
 #add_subdirectory(../../yolo_lib yolo_lib.out)
@@ -113,10 +95,10 @@ include_directories(${YOLO_DIR})
 link_directories( ${YOLO_DIR})
 
 #compile
-cuda_add_executable(traffic_detect_jetson src/traffic_detect_jetson.cpp src/status_machine.cpp  src/trafficlights_detector.cpp)
+add_executable(traffic_detect src/traffic_detect_jetson.cpp src/status_machine.cpp  src/trafficlights_detector.cpp)
 
 #link
-target_link_libraries(traffic_detect_jetson  yolo-lib ${OpenCV_LIBS} ${catkin_LIBRARIES} jetson-inference )
+target_link_libraries(traffic_detect  yolo-lib ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
 #
 #add_dependencies(traffic_detect ${catkin_EXPORTED_TARGETS})
