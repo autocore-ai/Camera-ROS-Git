@@ -29,8 +29,9 @@ void TrafficLightsDetector::set_current_frame(cv::Mat frame)
 void TrafficLightsDetector::init(int argc,char** argv)
 {
     //load yolov3 model param
-    m_yolo_helper.parse_config_params(argc,argv);
+    //m_yolo_helper.parse_config_params(argc,argv);
     //
+    m_yolo_helper.init();
     init_ros(argc,argv);
 } 
 

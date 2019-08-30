@@ -5,33 +5,18 @@
 #include <string>
 #include <sys/time.h>
 #include <iostream>
-
 #include <ros/ros.h>
 
-using namespace std;
-using namespace cv;
-
-YoloHelper::YoloHelper(/* args */)
+YoloHelper::YoloHelper()
 {
-    
 }
 
 YoloHelper::~YoloHelper()
 {
 }
-
-
-void YoloHelper::parse_config_params(int argc, char** argv)
-{
-    
-
-    ROS_INFO("m_saveDetections:%s",m_saveDetections?"true":"false");
-    ROS_INFO("m_saveDetectionsPath:%s",m_saveDetectionsPath.c_str());
-}
    
 std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org,bool simu)
 {
-    //std::vector<DsImage> dsImages;
     std::vector<BBoxInfo> vBoxes;
     
     if(simu)
@@ -40,43 +25,11 @@ std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org,bool sim
     }
     else
     {
-        //
         return vBoxes;
     }
 }
 
-
-cv::Mat YoloHelper::get_marked_image(int imageIndex)
-{
-    cv::Mat mat;
-    return mat;
-}
-
-
-string YoloHelper::type2str(int type) {
-  string r;
-
-  uchar depth = type & CV_MAT_DEPTH_MASK;
-  uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-  switch ( depth ) {
-    case CV_8U:  r = "8U"; break;
-    case CV_8S:  r = "8S"; break;
-    case CV_16U: r = "16U"; break;
-    case CV_16S: r = "16S"; break;
-    case CV_32S: r = "32S"; break;
-    case CV_32F: r = "32F"; break;
-    case CV_64F: r = "64F"; break;
-    default:     r = "User"; break;
-  }
-
-  r += "C";
-  r += (chans+'0');
-
-  return r;
-}
-
-
+/******************************************************************************/
 float YoloHelper::get_percentage(Mat img_hsv,
                            int iLowH,
                            int iHighH,
@@ -105,10 +58,9 @@ float YoloHelper::get_percentage(Mat img_hsv,
             }
         }
     }
-    //cout<<"counts="<<counts<<endl; 
+ 
     float percentage = (float)counts/(imgThresholded.cols * imgThresholded.rows);
-    //cout<<"percentage="<<percentage<<endl;
-
+   
     //im_show("img_hsv",imgThresholded);
     return percentage;
 }
@@ -139,30 +91,15 @@ int YoloHelper::judge_lights_color(cv::Mat test_img)
     equalizeHist(hsvSplit[2],hsvSplit[2]);
     merge(hsvSplit,img_hsv);
 
-   int iLowH = 0;
-   int iHighH = 10;
- 
-   int iLowS = 43; 
-   int iHighS = 255;
- 
-   int iLowV = 46;
-   int iHighV = 255;
-
+   int iLowH = 0;int iHighH = 10;
+   int iLowS = 43;int iHighS = 255;
+   int iLowV = 46;int iHighV = 255;
    float r_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
 
-   iLowH = 35;
-   iHighH = 77;
- 
-   iLowS = 43; 
-   iHighS = 255;
- 
-   iLowV = 46;
-   iHighV = 255;
-
+   iLowH = 35;iHighH = 77;
    float g_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
 
-   iLowH = 26;
-   iHighH = 34;
+   iLowH = 26;iHighH = 34;
    float y_percent = get_percentage(img_hsv,iLowH,iHighH,iLowS,iHighS,iLowV,iHighV);
     
    cout<<r_percent<<","<<g_percent<<","<<y_percent<<endl;
@@ -215,11 +152,24 @@ std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_or
     return vec_boxes;
 }
 
+
+//---------------------------------------------------------------------------------------
 void YoloHelper::init()
 {
     dpuOpen();
     m_kernel = dpuLoadKernel("yolo");
     m_task = dpuCreateTask(m_kernel, 0);
+}
+
+void YoloHelper::release_resource()
+{
+    dpuDestroyTask(task);
+
+    /* Destroy DPU Kernels & free resources */
+    dpuDestroyKernel(kernel);
+
+    /* Dettach from DPU driver & free resources */
+    dpuClose();
 }
 
 void YoloHelper::runYOLO(DPUTask *task, Mat &img)
@@ -305,8 +255,6 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 
         // Store the object detection frames as coordinate information  
         detect(boxes, result, channel, height, width, i, sHeight, sWidth);
-
-        printf("?????????\n");
     }
 
     // Restore the correct coordinate frame of the original image 

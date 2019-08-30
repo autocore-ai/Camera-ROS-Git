@@ -3,12 +3,11 @@
 
 //#include "yolo.h"
 #include <string>
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
 #include <dnndk/dnndk.h>
 #include "utils.h"
 
 using namespace cv;
+using namespace std;
 
 enum Color
 {
@@ -35,22 +34,21 @@ class YoloHelper
 {
 #define INPUT_NODE "layer0_conv"
 public:
-    YoloHelper(/* args */);
+    YoloHelper();
     ~YoloHelper();
 
-    std::vector<BBoxInfo> do_inference(const cv::Mat &image_org, bool simu = false);
-    int judge_lights_color(cv::Mat test_img);
-    int judge_lights_color(std::string full_imgfile);
-    std::vector<BBoxInfo> judge_red_yellow_green(cv::Mat &image_org);
-
+    std::vector<BBoxInfo> do_inference(const Mat &image_org, bool simu = false);
     void init();
+    void release_resource();
     void runYOLO(DPUTask *task, Mat &img);
-    void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
-    void postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight);
     inline DPUTask *get_task()
     {
         return m_task;
     }
+    
+private:    
+    void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
+    void postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight);
 
     void detect(vector<vector<float>> &boxes, 
                   vector<float> result,
@@ -68,21 +66,22 @@ public:
                                        int netw, 
                                        int neth, 
                                        int relative = 0);
-
 private:
     DPUKernel *m_kernel = nullptr;
     DPUTask *m_task = nullptr;
 
-//utils
-private:
-    std::string type2str(int type);
+//simulation environment
+public:
+    int judge_lights_color(Mat test_img);
+    int judge_lights_color(string full_imgfile);
+    std::vector<BBoxInfo> judge_red_yellow_green(const Mat &image_org);    
     float get_percentage(cv::Mat img_hsv,
-                         int iLowH,
-                         int iHighH,
-                         int iLowS,
-                         int iHighS,
-                         int iLowV,
-                         int iHighV);
+                     int iLowH,
+                     int iHighH,
+                     int iLowS,
+                     int iHighS,
+                     int iLowV,
+                     int iHighV);   
 };
 
 #endif
