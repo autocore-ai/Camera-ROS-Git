@@ -27,11 +27,8 @@
 #include <dirent.h>
 #include <fstream>
 
-
-
 using namespace cv;
 using namespace std;
-
 
 
 // active loop
@@ -60,9 +57,6 @@ void *auto_active_pub(void *arg)
     exit(0);
 }
 */
-
-
-
 
 
 int main(int argc, char *argv[])

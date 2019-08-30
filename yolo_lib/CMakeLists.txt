@@ -23,7 +23,6 @@
 # *
 # */
 
-find_package(CUDA)
 find_package(catkin REQUIRED COMPONENTS
   autoreg_msgs
   dashboard_msgs
@@ -38,7 +37,7 @@ include_directories(
 )
 
 #
-add_definitions(-Wno-sign-compare -Wno-narrowing)
+add_definitions(-Wno-sign-compare -Wno-narrowing -std=c++11 -g)
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 file(GLOB CXX_SRCS *.cpp)
@@ -47,12 +46,11 @@ file(GLOB CU_SRCS *.cu)
 find_package(PkgConfig)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 
-include_directories(${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${TRT_INCLUDE_DIR} ${GLIB_INCLUDE_DIRS} ${GLFAGS_INCLUDE_DIRS} )
-link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+include_directories(${OpenCV_INCLUDE_DIRS}  ${GLIB_INCLUDE_DIRS} ${GLFAGS_INCLUDE_DIRS} )
+link_directories()
 
-CUDA_COMPILE(CU_OBJS ${CU_SRCS})
-add_library(yolo-lib STATIC ${CXX_SRCS} ${CU_OBJS})
+add_library(yolo-lib STATIC ${CXX_SRCS})
 
-
-
-target_link_libraries(yolo-lib cudart cudnn cublas ${OpenCV_LIBRARIES} ${TRT_LIBRARY_INFER} ${TRT_LIBRARY_INFER_PLUGIN} gflags stdc++fs dl)
+# linking libraries of DNNDK 
+set(DNNDK_LDFLAGS "-lhineon -ln2cube -ldputils -lpthread")
+target_link_libraries(yolo-lib ${OpenCV_LIBRARIES}  gflags stdc++fs ${DNNDK_LDFLAGS})

@@ -226,14 +226,16 @@ void TrafficLightsDetector::process_frame()
     for (BBoxInfo b : boxes)
     {
         //cout<<"box_idx:"<< box_idx++ << endl;
-        //cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
+        cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
         //cout<<"label:"<< b.label<< endl;
         //cout<<"classId:"<< b.classId <<endl;
         //cout<<"prob:"<< b.prob <<endl;
-        cout<<"class_name:"<<m_yolo_helper.m_inferNet->getClassName(b.label)<<endl;
+        //cout<<"class_name:"<<m_yolo_helper.m_inferNet->getClassName(b.label)<<endl;
 
         bool go_up,go_left,go_right;//给出对当前frame的判断           
-        string class_name =  m_yolo_helper.m_inferNet->getClassName(b.label);
+        //string class_name =  m_yolo_helper.m_inferNet->getClassName(b.label);
+
+        string class_name = "";
         
         if(m_simu_mode)
         {

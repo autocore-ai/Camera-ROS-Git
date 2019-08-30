@@ -1,12 +1,5 @@
 #include "yolo_helper.h"
 
-#include "ds_image.h"
-#include "trt_utils.h"
-#include "yolo.h"
-#include "yolo_config_parser.h"
-#include "yolov2.h"
-#include "yolov3.h"
-
 #include <experimental/filesystem>
 #include <fstream>
 #include <string>
@@ -20,6 +13,7 @@ using namespace cv;
 
 YoloHelper::YoloHelper(/* args */)
 {
+    
 }
 
 YoloHelper::~YoloHelper()
@@ -29,46 +23,8 @@ YoloHelper::~YoloHelper()
 
 void YoloHelper::parse_config_params(int argc, char** argv)
 {
-    // parse config params
-    yoloConfigParserInit(argc, argv);
-    NetworkInfo yoloInfo = getYoloNetworkInfo();
-    InferParams yoloInferParams = getYoloInferParams();
-    uint64_t seed = getSeed();
-    std::string networkType = getNetworkType();
-    std::string precision = getPrecision();
-    std::string testImages = getTestImages();
-    std::string testImagesPath = getTestImagesPath();
-    m_decode = getDecode();
-    m_doBenchmark = getDoBenchmark();
-    m_viewDetections = getViewDetections();
-    m_saveDetections = getSaveDetections();
-    m_saveDetectionsPath = getSaveDetectionsPath();
-    m_batchSize = getBatchSize();
-    m_shuffleTestSet = getShuffleTestSet();
+    
 
-    srand(unsigned(seed));
-
-    //std::unique_ptr<Yolo> inferNet{nullptr};
-    if ((networkType == "yolov2") || (networkType == "yolov2-tiny"))
-    {
-        m_inferNet = std::unique_ptr<Yolo>{new YoloV2(m_batchSize, yoloInfo, yoloInferParams)};
-    }
-    else if ((networkType == "yolov3") || (networkType == "yolov3-tiny"))
-    {
-        m_inferNet = std::unique_ptr<Yolo>{new YoloV3(m_batchSize, yoloInfo, yoloInferParams)};
-    }
-    else
-    {
-        assert(false && "Unrecognised network_type. Network Type has to be one among the following : yolov2, yolov2-tiny, yolov3 and yolov3-tiny");
-    }
-
-/*
-    if (testImages.empty())
-    {
-        std::cout << "Enter a valid file path for test_images config param" << std::endl;
-        return -1;
-    }
-*/
     ROS_INFO("m_saveDetections:%s",m_saveDetections?"true":"false");
     ROS_INFO("m_saveDetectionsPath:%s",m_saveDetectionsPath.c_str());
 }
@@ -76,79 +32,24 @@ void YoloHelper::parse_config_params(int argc, char** argv)
 std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org,bool simu)
 {
     //std::vector<DsImage> dsImages;
-    dsImages.clear();
-    cv::Mat trtInput;
+    std::vector<BBoxInfo> vBoxes;
     
     if(simu)
     {
         return judge_red_yellow_green(image_org);
     }
-    //else
+    else
     {
-        dsImages.emplace_back(image_org, m_inferNet->getInputH(),m_inferNet->getInputW());
-        trtInput = blobFromDsImages(dsImages, m_inferNet->getInputH(), m_inferNet->getInputW());
+        //
+        return vBoxes;
     }
-
-
-    double inferElapsed = 0;
-    struct timeval inferStart, inferEnd;
-    gettimeofday(&inferStart, NULL);
-
-    m_inferNet->doInference(trtInput.data,dsImages.size());
-    
-    gettimeofday(&inferEnd, NULL);
-    inferElapsed += ((inferEnd.tv_sec - inferStart.tv_sec) + (inferEnd.tv_usec - inferStart.tv_usec) / 1000000.0) * 1000;
-    std::cout << " Inference time per image : " << inferElapsed  << " ms" << endl;
-
-    std::vector<BBoxInfo> boxes;
-
-    for (uint imageIdx = 0; imageIdx < dsImages.size(); ++imageIdx)
-    {
-        auto & curImage = dsImages.at(imageIdx);
-        auto binfo = m_inferNet->decodeDetections(imageIdx, curImage.getImageHeight(),
-                                                curImage.getImageWidth());
-        boxes  = nmsAllClasses(m_inferNet->getNMSThresh(), binfo, m_inferNet->getNumClasses());
-        
-        // box_idx = 0
-        // for (auto b : remaining)
-        // {
-        //     cout<<"box_idx:"<< box_idx << endl;
-        //     cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
-        //     cout<<"label:"<< b.label<< endl;
-        //     cout<<"classId:"<< b.classId <<endl;
-        //     cout<<"prob:"<< b.prob <<endl;
-        //     cout<<"class_name:"<< m_inferNet->getClassName(b.label)<<endl;
-        // }
-
-        for (auto b : boxes)
-        {
-            if (m_inferNet->isPrintPredictions())
-            {
-                printPredictions(b, m_inferNet->getClassName(b.label));
-            }
-            curImage.addBBox(b, m_inferNet->getClassName(b.label));
-        }
-
-         if (m_viewDetections)
-         {
-             curImage.showImage();
-         }
-
-         if(m_saveDetections)
-         {
-            curImage.saveImageJPEG(m_saveDetectionsPath);
-         }
-     }
-
-     return boxes;
 }
 
 
 cv::Mat YoloHelper::get_marked_image(int imageIndex)
 {
-    DsImage &curImage = dsImages.at(imageIndex);
-
-    return curImage.get_marked_image();
+    cv::Mat mat;
+    return mat;
 }
 
 
@@ -313,5 +214,214 @@ std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_or
 
     return vec_boxes;
 }
+
+void YoloHelper::init()
+{
+    dpuOpen();
+    m_kernel = dpuLoadKernel("yolo");
+    m_task = dpuCreateTask(m_kernel, 0);
+}
+
+void YoloHelper::runYOLO(DPUTask *task, Mat &img)
+{
+    // mean values for YOLO-v3 
+    float mean[3] = {0.0f, 0.0f, 0.0f};
+    int height = dpuGetInputTensorHeight(task, INPUT_NODE);
+    int width = dpuGetInputTensorWidth(task, INPUT_NODE);
+
+    // feed input frame into DPU Task with mean value 
+    setInputImageForYOLO(task, img, mean);
+
+    // invoke the running of DPU for YOLO-v3 
+    auto begin = std::chrono::system_clock::now();
+    dpuRunTask(task);
+    auto end = std::chrono::system_clock::now();
+    auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    std::cout << "elsp:" << elsp.count() << std::endl;
+
+    postProcess(task, img, width, height);
+}
+
+void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean)
+{
+    Mat img_copy;
+    int height = dpuGetInputTensorHeight(task, INPUT_NODE);
+    int width = dpuGetInputTensorWidth(task, INPUT_NODE);
+    int size = dpuGetInputTensorSize(task, INPUT_NODE);
+
+    int8_t *data = dpuGetInputTensorAddress(task, INPUT_NODE);
+    image img_new = load_image_cv(frame);
+    image img_yolo = letterbox_image(img_new, width, height);
+
+    vector<float> bb(size);
+    for (int b = 0; b < height; ++b)
+    {
+        for (int c = 0; c < width; ++c)
+        {
+            for (int a = 0; a < 3; ++a)
+            {
+                bb[b * width * 3 + c * 3 + a] = img_yolo.data[a * height * width + b * width + c];
+            }
+        }
+    }
+
+    float scale = dpuGetInputTensorScale(task, INPUT_NODE);
+    for (int i = 0; i < size; ++i)
+    {
+        data[i] = int(bb.data()[i] * scale);
+
+        if (data[i] < 0)
+            data[i] = 127;
+    }
+
+    free_image(img_new);
+    free_image(img_yolo);
+}
+
+//
+void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
+{
+    //output nodes of YOLO-v3 
+    const vector<string> outputs_node = {"layer81_conv", "layer93_conv", "layer105_conv"};
+
+    vector<vector<float>> boxes;
+    for (size_t i = 0; i < outputs_node.size(); i++)
+    {
+        string output_node = outputs_node[i];
+        cout<<"postProcess: "<<output_node<<endl;
+        
+        int channel = dpuGetOutputTensorChannel(task, output_node.c_str());
+        int width = dpuGetOutputTensorWidth(task, output_node.c_str());
+        int height = dpuGetOutputTensorHeight(task, output_node.c_str());
+
+        int sizeOut = dpuGetOutputTensorSize(task, output_node.c_str());
+        int8_t *dpuOut = dpuGetOutputTensorAddress(task, output_node.c_str());
+        float scale = dpuGetOutputTensorScale(task, output_node.c_str());
+        vector<float> result(sizeOut);
+        boxes.reserve(sizeOut);
+
+        // Store every output node results 
+        get_output(dpuOut, sizeOut, scale, channel, height, width, result);
+
+        // Store the object detection frames as coordinate information  
+        detect(boxes, result, channel, height, width, i, sHeight, sWidth);
+
+        printf("?????????\n");
+    }
+
+    // Restore the correct coordinate frame of the original image 
+    correct_region_boxes(boxes, boxes.size(), frame.cols, frame.rows, sWidth, sHeight);
+
+    // Apply the computation for NMS    
+    cout << "boxes size: " << boxes.size() << endl;
+    vector<vector<float>> res = applyNMS(boxes, classificationCnt, NMS_THRESHOLD);
+
+    float h = frame.rows;
+    float w = frame.cols;
+    for (size_t i = 0; i < res.size(); ++i)
+    {
+        float xmin = (res[i][0] - res[i][2] / 2.0) * w + 1.0;
+        float ymin = (res[i][1] - res[i][3] / 2.0) * h + 1.0;
+        float xmax = (res[i][0] + res[i][2] / 2.0) * w + 1.0;
+        float ymax = (res[i][1] + res[i][3] / 2.0) * h + 1.0;
+        
+        cout << res[i][res[i][4] + 6] << " ";
+        cout << xmin << " " << ymin << " " << xmax << " " << ymax << endl;
+
+        if (res[i][res[i][4] + 6] > CONF)
+        {
+            int type = res[i][4];
+
+            if (type == 0)
+            {
+                rectangle(frame, cvPoint(xmin, ymin), cvPoint(xmax, ymax), Scalar(0, 0, 255), 1, 1, 0);
+            }
+            else if (type == 1)
+            {
+                rectangle(frame, cvPoint(xmin, ymin), cvPoint(xmax, ymax), Scalar(255, 0, 0), 1, 1, 0);
+            }
+            else
+            {
+                rectangle(frame, cvPoint(xmin, ymin), cvPoint(xmax, ymax), Scalar(0, 255, 255), 1, 1, 0);
+            }
+        }
+    }
+}
+
+
+void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
+    int channel, int height, int width, int num, int sHeight, int sWidth) 
+{
+
+    printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
+    
+    vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
+    int conf_box = 5 + classificationCnt;
+    float swap[height * width][anchorCnt][conf_box]; //[s*s,3,1+4+class]
+
+    for (int h = 0; h < height; ++h) {
+        for (int w = 0; w < width; ++w) {
+            for (int c = 0; c < channel; ++c) {
+                int temp = c * height * width + h * width + w;
+                //printf("temp=%d,width=%d,with_addr=%p\n",temp,width,&width);
+                swap[h * width + w][c / conf_box][c % conf_box] = result[temp];
+            }
+        }
+    }
+    printf("LINE=%d\n",__LINE__);
+    
+    for (int h = 0; h < height; ++h) {
+        for (int w = 0; w < width; ++w) {
+            for (int c = 0; c < anchorCnt; ++c) {
+                float obj_score = sigmoid(swap[h * width + w][c][4]);
+                
+                if (obj_score < CONF)
+                    continue;
+                vector<float> box;
+                
+                box.push_back((w + sigmoid(swap[h * width + w][c][0])) / width);
+                box.push_back((h + sigmoid(swap[h * width + w][c][1])) / height);
+                box.push_back(exp(swap[h * width + w][c][2]) * biases[2 * c + 2 * anchorCnt * num] / float(sWidth));
+                box.push_back(exp(swap[h * width + w][c][3]) * biases[2 * c + 2 * anchorCnt * num + 1] / float(sHeight));
+                box.push_back(-1);
+                box.push_back(obj_score);
+                for (int p = 0; p < classificationCnt; p++) {
+                    box.push_back(obj_score * sigmoid(swap[h * width + w][c][5 + p]));
+                }
+                boxes.push_back(box);
+            }
+        }
+    }
+}
+
+void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
+    int w, int h, int netw, int neth, int relative) 
+{
+    printf("%s begin \n",__FUNCTION__);
+    
+    int new_w=0;
+    int new_h=0;
+
+    if (((float)netw/w) < ((float)neth/h)) {
+        new_w = netw;
+        new_h = (h * netw)/w;
+    } else {
+        new_h = neth;
+        new_w = (w * neth)/h;
+    }
+    for (int i = 0; i < n; ++i){
+        boxes[i][0] =  (boxes[i][0] - (netw - new_w)/2./netw) / ((float)new_w/(float)netw);
+        boxes[i][1] =  (boxes[i][1] - (neth - new_h)/2./neth) / ((float)new_h/(float)neth);
+        boxes[i][2] *= (float)netw/new_w;
+        boxes[i][3] *= (float)neth/new_h;
+    }
+
+    printf("%s end \n",__FUNCTION__);
+}
+
+
+
+
+
 
 
