@@ -370,7 +370,7 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
 
  vector<map<string,string>> YoloHelper::parse_cfgfile(const string cfgfilepath)
  {
-    assert(fileExists(cfgfilepath));
+    assert(file_exists(cfgfilepath));
     std::ifstream file(cfgfilepath);
     assert(file.good());
     std::string line;
@@ -416,7 +416,7 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
         string section = block["type"];
         if(section == "yolo")
         {
-            number_classes = block["classes"];
+            number_classes = std::stoi(block["classes"]);
             
             std::string anchor_string = block.at("anchors");
             while (!anchor_string.empty())
@@ -436,5 +436,11 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
                 }
             }
         }
+    }
+
+    cout << number_classes <<endl;
+    for(auto &anchor : anchors)
+    {
+        cout<<anchor<<endl;
     }
  }
