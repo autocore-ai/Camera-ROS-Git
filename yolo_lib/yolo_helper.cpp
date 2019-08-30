@@ -368,8 +368,159 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
 }
 
 
+ vector<map<string,string>> YoloHelper::parse_cfgfile(const string cfgfilepath)
+ {
+    assert(fileExists(cfgfilepath));
+    std::ifstream file(cfgfilepath);
+    assert(file.good());
+    std::string line;
+    std::vector<std::map<std::string, std::string>> blocks;
+    std::map<std::string, std::string> block;
+
+    while (getline(file, line))
+    {
+        if (line.size() == 0) continue;
+        if (line.front() == '#') continue;
+        line = trim(line);
+        if (line.front() == '[')
+        {
+            if (block.size() > 0)
+            {
+                blocks.push_back(block);
+                block.clear();
+            }
+            std::string key = "type";
+            std::string value = trim(line.substr(1, line.size() - 2));
+            block.insert(std::pair<std::string, std::string>(key, value));
+        }
+        else
+        {
+            int cpos = line.find('=');
+            std::string key = trim(line.substr(0, cpos));
+            std::string value = trim(line.substr(cpos + 1));
+            block.insert(std::pair<std::string, std::string>(key, value));
+        }
+    }
+    blocks.push_back(block);
+    return blocks;
+}
+
+ void YoloHelper::test_parse_cfgfile(const string cfgfilepath)
+ {
+    vector<map<string,string>> blocks = parse_cfgfile(cfgfilepath);
+    vector<float> anchors;
+    int number_classes = -1;
+    
+    for(auto block : blocks)
+    {
+        string section = block["type"];
+        if(section == "yolo")
+        {
+            number_classes = block["classes"];
+            
+            std::string anchor_string = block.at("anchors");
+            while (!anchor_string.empty())
+            {
+                int npos = anchor_string.find_first_of(',');
+                if (npos != -1)
+                {
+                    float anchor = std::stof(trim(anchor_string.substr(0, npos)));
+                    anchors.push_back(anchor);
+                    anchor_string.erase(0, npos + 1);
+                }
+                else
+                {
+                    float anchor = std::stof(trim(anchor_string));
+                    anchors.push_back(anchor);
+                    break;
+                }
+            }
+        }
+    }
+ }
 
 
+ void YoloHelper::parseConfigBlocks()
+ {
+     for (auto block : m_configBlocks)
+     {
+         if (block.at("type") == "net")
+         {
+             assert((block.find("height") != block.end())
+                    && "Missing 'height' param in network cfg");
+             assert((block.find("width") != block.end()) && "Missing 'width' param in network cfg");
+             assert((block.find("channels") != block.end())
+                    && "Missing 'channels' param in network cfg");
+ 
+             m_InputH = std::stoul(block.at("height"));
+             m_InputW = std::stoul(block.at("width"));
+             m_InputC = std::stoul(block.at("channels"));
+             assert(m_InputW == m_InputH);
+             m_InputSize = m_InputC * m_InputH * m_InputW;
+         }
+         else if ((block.at("type") == "region") || (block.at("type") == "yolo"))
+         {
+             assert((block.find("num") != block.end())
+                    && std::string("Missing 'num' param in " + block.at("type") + " layer").c_str());
+             assert((block.find("classes") != block.end())
+                    && std::string("Missing 'classes' param in " + block.at("type") + " layer")
+                           .c_str());
+             assert((block.find("anchors") != block.end())
+                    && std::string("Missing 'anchors' param in " + block.at("type") + " layer")
+                           .c_str());
+ 
+             TensorInfo outputTensor;
+             std::string anchorString = block.at("anchors");
+             while (!anchorString.empty())
+             {
+                 int npos = anchorString.find_first_of(',');
+                 if (npos != -1)
+                 {
+                     float anchor = std::stof(trim(anchorString.substr(0, npos)));
+                     outputTensor.anchors.push_back(anchor);
+                     anchorString.erase(0, npos + 1);
+                 }
+                 else
+                 {
+                     float anchor = std::stof(trim(anchorString));
+                     outputTensor.anchors.push_back(anchor);
+                     break;
+                 }
+             }
+ 
+             if ((m_NetworkType == "yolov3") || (m_NetworkType == "yolov3-tiny"))
+             {
+                 assert((block.find("mask") != block.end())
+                        && std::string("Missing 'mask' param in " + block.at("type") + " layer")
+                               .c_str());
+ 
+                 std::string maskString = block.at("mask");
+                 while (!maskString.empty())
+                 {
+                     int npos = maskString.find_first_of(',');
+                     if (npos != -1)
+                     {
+                         uint mask = std::stoul(trim(maskString.substr(0, npos)));
+                         outputTensor.masks.push_back(mask);
+                         maskString.erase(0, npos + 1);
+                     }
+                     else
+                     {
+                         uint mask = std::stoul(trim(maskString));
+                         outputTensor.masks.push_back(mask);
+                         break;
+                     }
+                 }
+             }
+ 
+             outputTensor.numBBoxes = outputTensor.masks.size() > 0
+                 ? outputTensor.masks.size()
+                 : std::stoul(trim(block.at("num")));
+             outputTensor.numClasses = std::stoul(block.at("classes"));
+             m_OutputTensors.push_back(outputTensor);
+         }
+     }
+ }
 
 
 

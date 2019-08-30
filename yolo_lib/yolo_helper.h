@@ -3,6 +3,8 @@
 
 //#include "yolo.h"
 #include <string>
+#include <vector>
+#include <map>
 #include <dnndk/dnndk.h>
 #include "utils.h"
 
@@ -46,7 +48,9 @@ public:
         return m_task;
     }
     
-private:    
+private:  
+    void test_parse_cfgfile(const string cfgfilepath);
+    vector<map<string,string>> parse_cfgfile(const string cfgfilepath);
     void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
     void postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight);
 
