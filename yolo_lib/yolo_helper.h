@@ -28,7 +28,7 @@ struct BBoxInfo
 {
     BBox box;
     int label;
-    int classId; // For coco benchmarking
+    int classId; 
     float prob;
 };
 
@@ -48,6 +48,10 @@ public:
         return m_task;
     }
     void test_parse_cfgfile(const string cfgfilepath);
+    const vector<BBoxInfo>& get_inference_result()
+    {
+        return m_boxes;
+    };
 private:  
     vector<map<string,string>> parse_cfgfile(const string cfgfilepath);
     void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
@@ -73,6 +77,13 @@ private:
     DPUKernel *m_kernel = nullptr;
     DPUTask *m_task = nullptr;
 
+    int m_classification_cnt = 4;
+    int m_acnhor_count = 3;
+
+    vector<BBoxInfo> m_boxes;
+    
+    
+    
 //simulation environment
 public:
     int judge_lights_color(Mat test_img);

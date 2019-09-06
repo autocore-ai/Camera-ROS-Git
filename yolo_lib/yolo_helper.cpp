@@ -178,6 +178,7 @@ void YoloHelper::runYOLO(DPUTask *task, Mat &img)
     float mean[3] = {0.0f, 0.0f, 0.0f};
     int height = dpuGetInputTensorHeight(task, INPUT_NODE);
     int width = dpuGetInputTensorWidth(task, INPUT_NODE);
+    ROS_INFO("");
 
     // feed input frame into DPU Task with mean value 
     setInputImageForYOLO(task, img, mean);
@@ -231,6 +232,8 @@ void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *me
 //
 void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 {
+    m_boxes.clear();
+
     //output nodes of YOLO-v3 
     const vector<string> outputs_node = {"layer81_conv", "layer93_conv", "layer105_conv"};
 
@@ -247,6 +250,9 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         int sizeOut = dpuGetOutputTensorSize(task, output_node.c_str());
         int8_t *dpuOut = dpuGetOutputTensorAddress(task, output_node.c_str());
         float scale = dpuGetOutputTensorScale(task, output_node.c_str());
+
+        ROS_INFO("(w,h,c):(%d,%d,%d)",width,height,channel);
+        
         vector<float> result(sizeOut);
         boxes.reserve(sizeOut);
 
@@ -262,7 +268,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 
     // Apply the computation for NMS    
     cout << "boxes size: " << boxes.size() << endl;
-    vector<vector<float>> res = applyNMS(boxes, classificationCnt, NMS_THRESHOLD);
+    vector<vector<float>> res = applyNMS(boxes, m_classification_cnt, NMS_THRESHOLD);
 
     float h = frame.rows;
     float w = frame.cols;
@@ -276,7 +282,9 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         cout << res[i][res[i][4] + 6] << " ";
         cout << xmin << " " << ymin << " " << xmax << " " << ymax << endl;
 
-        if (res[i][res[i][4] + 6] > CONF)
+        int classprob_index = res[i][4] + 6;
+        float classprob = res[i][classprob_index];
+        if (classprob > CONF)
         {
             int type = res[i][4];
 
@@ -292,8 +300,15 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
             {
                 rectangle(frame, cvPoint(xmin, ymin), cvPoint(xmax, ymax), Scalar(0, 255, 255), 1, 1, 0);
             }
+
+            BBoxInfo b;
+            b.classId = classprob_index;
+            b.prob = classprob;
+            m_boxes.emplace_back(b);
         }
     }
+    
+    cout<<"postProcess end "<<endl;
 }
 
 
@@ -304,8 +319,8 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
     printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
     
     vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
-    int conf_box = 5 + classificationCnt;
-    float swap[height * width][anchorCnt][conf_box]; //[s*s,3,1+4+class]
+    int conf_box = 5 + m_classification_cnt;
+    float swap[height * width][m_acnhor_count][conf_box]; //[s*s,3,1+4+class]
 
     for (int h = 0; h < height; ++h) {
         for (int w = 0; w < width; ++w) {
@@ -320,7 +335,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
     
     for (int h = 0; h < height; ++h) {
         for (int w = 0; w < width; ++w) {
-            for (int c = 0; c < anchorCnt; ++c) {
+            for (int c = 0; c < m_acnhor_count; ++c) {
                 float obj_score = sigmoid(swap[h * width + w][c][4]);
                 
                 if (obj_score < CONF)
@@ -329,11 +344,11 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
                 
                 box.push_back((w + sigmoid(swap[h * width + w][c][0])) / width);
                 box.push_back((h + sigmoid(swap[h * width + w][c][1])) / height);
-                box.push_back(exp(swap[h * width + w][c][2]) * biases[2 * c + 2 * anchorCnt * num] / float(sWidth));
-                box.push_back(exp(swap[h * width + w][c][3]) * biases[2 * c + 2 * anchorCnt * num + 1] / float(sHeight));
+                box.push_back(exp(swap[h * width + w][c][2]) * biases[2 * c + 2 * m_acnhor_count * num] / float(sWidth));
+                box.push_back(exp(swap[h * width + w][c][3]) * biases[2 * c + 2 * m_acnhor_count * num + 1] / float(sHeight));
                 box.push_back(-1);
                 box.push_back(obj_score);
-                for (int p = 0; p < classificationCnt; p++) {
+                for (int p = 0; p < m_classification_cnt; p++) {
                     box.push_back(obj_score * sigmoid(swap[h * width + w][c][5 + p]));
                 }
                 boxes.push_back(box);
@@ -417,6 +432,7 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
         if(section == "yolo")
         {
             number_classes = std::stoi(block["classes"]);
+            anchors.clear();
             
             std::string anchor_string = block.at("anchors");
             while (!anchor_string.empty())
