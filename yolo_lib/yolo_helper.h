@@ -30,6 +30,11 @@ struct BBoxInfo
     int label;
     int classId; 
     float prob;
+
+    void output()
+    {
+        
+    }
 };
 
 class YoloHelper

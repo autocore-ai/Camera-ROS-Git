@@ -178,21 +178,42 @@ void YoloHelper::runYOLO(DPUTask *task, Mat &img)
     float mean[3] = {0.0f, 0.0f, 0.0f};
     int height = dpuGetInputTensorHeight(task, INPUT_NODE);
     int width = dpuGetInputTensorWidth(task, INPUT_NODE);
-    ROS_INFO("");
-
+  
     // feed input frame into DPU Task with mean value 
     setInputImageForYOLO(task, img, mean);
-
+    
     // invoke the running of DPU for YOLO-v3 
     auto begin = std::chrono::system_clock::now();
     dpuRunTask(task);
     auto end = std::chrono::system_clock::now();
     auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
-    std::cout << "elsp:" << elsp.count() << std::endl;
+    //std::cout << "run task elsp:" << elsp.count() << std::endl;
 
     postProcess(task, img, width, height);
 }
 
+void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean)
+{
+    int height = dpuGetInputTensorHeight(task, INPUT_NODE);
+    int width = dpuGetInputTensorWidth(task, INPUT_NODE);
+    int size = dpuGetInputTensorSize(task, INPUT_NODE);
+    int8_t *data = dpuGetInputTensorAddress(task, INPUT_NODE);
+
+    cv::Mat flip_img ;
+    cv::flip(frame,flip_img ,1); 
+    unsigned char *img_data = flip_img.data;  //h*w*c rgb
+
+    float scale = dpuGetInputTensorScale(task, INPUT_NODE);
+    for (int i = 0; i < size; ++i)
+    {
+        data[i] = int(img_data[i]/255. * scale);
+
+        if (data[i] < 0)
+            data[i] = 127;
+    }
+}
+
+/*
 void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean)
 {
     Mat img_copy;
@@ -201,16 +222,18 @@ void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *me
     int size = dpuGetInputTensorSize(task, INPUT_NODE);
 
     int8_t *data = dpuGetInputTensorAddress(task, INPUT_NODE);
-    image img_new = load_image_cv(frame);
+    image img_new = load_image_cv(frame);  // c*h*w rgb
     image img_yolo = letterbox_image(img_new, width, height);
 
     vector<float> bb(size);
+    //bb重新转换成ｈ*w*c的顺序
     for (int b = 0; b < height; ++b)
     {
         for (int c = 0; c < width; ++c)
         {
             for (int a = 0; a < 3; ++a)
             {
+                //  
                 bb[b * width * 3 + c * 3 + a] = img_yolo.data[a * height * width + b * width + c];
             }
         }
@@ -228,6 +251,7 @@ void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *me
     free_image(img_new);
     free_image(img_yolo);
 }
+*/
 
 //
 void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
@@ -241,7 +265,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     for (size_t i = 0; i < outputs_node.size(); i++)
     {
         string output_node = outputs_node[i];
-        cout<<"postProcess: "<<output_node<<endl;
+        //cout<<"postProcess: "<<output_node<<endl;
         
         int channel = dpuGetOutputTensorChannel(task, output_node.c_str());
         int width = dpuGetOutputTensorWidth(task, output_node.c_str());
@@ -251,7 +275,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         int8_t *dpuOut = dpuGetOutputTensorAddress(task, output_node.c_str());
         float scale = dpuGetOutputTensorScale(task, output_node.c_str());
 
-        ROS_INFO("(w,h,c):(%d,%d,%d)",width,height,channel);
+        //ROS_INFO("(w,h,c):(%d,%d,%d)",width,height,channel);
         
         vector<float> result(sizeOut);
         boxes.reserve(sizeOut);
@@ -267,7 +291,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     correct_region_boxes(boxes, boxes.size(), frame.cols, frame.rows, sWidth, sHeight);
 
     // Apply the computation for NMS    
-    cout << "boxes size: " << boxes.size() << endl;
+    //cout << "boxes size: " << boxes.size() << endl;
     vector<vector<float>> res = applyNMS(boxes, m_classification_cnt, NMS_THRESHOLD);
 
     float h = frame.rows;
@@ -279,9 +303,11 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         float xmax = (res[i][0] + res[i][2] / 2.0) * w + 1.0;
         float ymax = (res[i][1] + res[i][3] / 2.0) * h + 1.0;
         
-        cout << res[i][res[i][4] + 6] << " ";
-        cout << xmin << " " << ymin << " " << xmax << " " << ymax << endl;
+        //cout << res[i][res[i][4] + 6] << " ";
+        //cout << xmin << " " << ymin << " " << xmax << " " << ymax << endl;
 
+        //x,y,c_x,c_y,index,confidence,prob1,prob2...
+        int class_id = res[i][4];
         int classprob_index = res[i][4] + 6;
         float classprob = res[i][classprob_index];
         if (classprob > CONF)
@@ -302,13 +328,13 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
             }
 
             BBoxInfo b;
-            b.classId = classprob_index;
+            b.classId = class_id;
             b.prob = classprob;
             m_boxes.emplace_back(b);
         }
     }
     
-    cout<<"postProcess end "<<endl;
+    //cout<<"postProcess end "<<endl;
 }
 
 
@@ -316,7 +342,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
     int channel, int height, int width, int num, int sHeight, int sWidth) 
 {
 
-    printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
+    //printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
     
     vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
     int conf_box = 5 + m_classification_cnt;
@@ -331,8 +357,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
             }
         }
     }
-    printf("LINE=%d\n",__LINE__);
-    
+ 
     for (int h = 0; h < height; ++h) {
         for (int w = 0; w < width; ++w) {
             for (int c = 0; c < m_acnhor_count; ++c) {
@@ -360,7 +385,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
 void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
     int w, int h, int netw, int neth, int relative) 
 {
-    printf("%s begin \n",__FUNCTION__);
+    //printf("%s begin \n",__FUNCTION__);
     
     int new_w=0;
     int new_h=0;
@@ -379,7 +404,7 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
         boxes[i][3] *= (float)neth/new_h;
     }
 
-    printf("%s end \n",__FUNCTION__);
+    //printf("%s end \n",__FUNCTION__);
 }
 
 
