@@ -44,7 +44,7 @@ public:
     YoloHelper();
     ~YoloHelper();
 
-    std::vector<BBoxInfo> do_inference(const Mat &image_org, bool simu = false);
+    std::vector<BBoxInfo> do_inference(Mat &image_org, bool simu = false);
     void init();
     void release_resource();
     void runYOLO(DPUTask *task, Mat &img);

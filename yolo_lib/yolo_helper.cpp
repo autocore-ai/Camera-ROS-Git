@@ -15,17 +15,16 @@ YoloHelper::~YoloHelper()
 {
 }
    
-std::vector<BBoxInfo> YoloHelper::do_inference(const cv::Mat& image_org,bool simu)
+std::vector<BBoxInfo> YoloHelper::do_inference(cv::Mat& image_org,bool simu)
 {
-    std::vector<BBoxInfo> vBoxes;
-    
     if(simu)
     {
         return judge_red_yellow_green(image_org);
     }
     else
     {
-        return vBoxes;
+        runYOLO(m_task,image_org);
+        return get_inference_result();
     }
 }
 
@@ -178,16 +177,20 @@ void YoloHelper::runYOLO(DPUTask *task, Mat &img)
     float mean[3] = {0.0f, 0.0f, 0.0f};
     int height = dpuGetInputTensorHeight(task, INPUT_NODE);
     int width = dpuGetInputTensorWidth(task, INPUT_NODE);
-  
+    
+    auto begin = std::chrono::system_clock::now();
     // feed input frame into DPU Task with mean value 
     setInputImageForYOLO(task, img, mean);
-    
-    // invoke the running of DPU for YOLO-v3 
-    auto begin = std::chrono::system_clock::now();
-    dpuRunTask(task);
     auto end = std::chrono::system_clock::now();
     auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
-    //std::cout << "run task elsp:" << elsp.count() << std::endl;
+    std::cout << "set input elsp:" << elsp.count() << std::endl;
+    // invoke the running of DPU for YOLO-v3 
+    
+    begin = std::chrono::system_clock::now();
+    dpuRunTask(task);
+    end = std::chrono::system_clock::now();
+    elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    std::cout << "run task elsp:" << elsp.count() << std::endl;
 
     postProcess(task, img, width, height);
 }
@@ -199,21 +202,21 @@ void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *me
     int size = dpuGetInputTensorSize(task, INPUT_NODE);
     int8_t *data = dpuGetInputTensorAddress(task, INPUT_NODE);
 
-    cv::Mat flip_img ;
-    cv::flip(frame,flip_img ,1); 
-    unsigned char *img_data = flip_img.data;  //h*w*c rgb
+    cv::cvtColor(frame, frame, CV_BGR2RGB);
+    unsigned char *img_data = frame.data;  //h*w*c rgb
 
     float scale = dpuGetInputTensorScale(task, INPUT_NODE);
     for (int i = 0; i < size; ++i)
     {
-        data[i] = int(img_data[i]/255. * scale);
+        data[i] = int((img_data[i]/255.) * scale);
 
         if (data[i] < 0)
             data[i] = 127;
     }
 }
 
-/*
+
+/* 
 void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean)
 {
     Mat img_copy;
