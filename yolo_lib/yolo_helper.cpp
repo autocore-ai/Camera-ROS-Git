@@ -156,7 +156,7 @@ std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_or
 void YoloHelper::init()
 {
     dpuOpen();
-    m_kernel = dpuLoadKernel("yolo_adas");
+    m_kernel = dpuLoadKernel("yolo");
     m_task = dpuCreateTask(m_kernel, 0);
 }
 
@@ -268,7 +268,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     for (size_t i = 0; i < outputs_node.size(); i++)
     {
         string output_node = outputs_node[i];
-        cout<<"postProcess: "<<output_node<<endl;
+        //cout<<"postProcess: "<<output_node<<endl;
         
         int channel = dpuGetOutputTensorChannel(task, output_node.c_str());
         int width = dpuGetOutputTensorWidth(task, output_node.c_str());
@@ -278,7 +278,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         int8_t *dpuOut = dpuGetOutputTensorAddress(task, output_node.c_str());
         float scale = dpuGetOutputTensorScale(task, output_node.c_str());
 
-        ROS_INFO("(w,h,c):(%d,%d,%d)",width,height,channel);
+        //ROS_INFO("(w,h,c):(%d,%d,%d)",width,height,channel);
         
         vector<float> result(sizeOut);
         boxes.reserve(sizeOut);
@@ -294,7 +294,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     correct_region_boxes(boxes, boxes.size(), frame.cols, frame.rows, sWidth, sHeight);
 
     // Apply the computation for NMS    
-    cout << "boxes size: " << boxes.size() << endl;
+    //cout << "boxes size: " << boxes.size() << endl;
     vector<vector<float>> res = applyNMS(boxes, m_classification_cnt, NMS_THRESHOLD);
 
     float h = frame.rows;
@@ -344,8 +344,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
     int channel, int height, int width, int num, int sHeight, int sWidth) 
 {
-    printf("result size = %d\n",result.size());
-    
+
     //printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
     
     vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
@@ -366,7 +365,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
         for (int w = 0; w < width; ++w) {
             for (int c = 0; c < m_acnhor_count; ++c) {
                 float obj_score = sigmoid(swap[h * width + w][c][4]);
-                //printf("obj_score=%f\n",obj_score);
+                
                 if (obj_score < CONF)
                     continue;
                 vector<float> box;
