@@ -45,7 +45,7 @@ public:
     ~YoloHelper();
 
     std::vector<BBoxInfo> do_inference(Mat &image_org, bool simu = false);
-    void init();
+    void init(const string& cfgfilepath);
     void release_resource();
     void runYOLO(DPUTask *task, Mat &img);
     inline DPUTask *get_task()
@@ -53,6 +53,7 @@ public:
         return m_task;
     }
     void test_parse_cfgfile(const string cfgfilepath);
+    void get_cfgfile_details(const string cfgfilepath);
     const vector<BBoxInfo>& get_inference_result()
     {
         return m_boxes;
@@ -84,11 +85,11 @@ private:
 
     int m_classification_cnt = 4;
     int m_acnhor_count = 3;
+    float m_nms_thershold = 0.5;
+    float m_confidence_thershold = 0.8;
+    vector<float> m_anchors;
 
-    vector<BBoxInfo> m_boxes;
-    
-    
-    
+    vector<BBoxInfo> m_boxes; 
 //simulation environment
 public:
     int judge_lights_color(Mat test_img);

@@ -13,6 +13,7 @@ YoloHelper::YoloHelper()
 
 YoloHelper::~YoloHelper()
 {
+    release_resource();
 }
    
 std::vector<BBoxInfo> YoloHelper::do_inference(cv::Mat& image_org,bool simu)
@@ -153,8 +154,10 @@ std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_or
 
 
 //---------------------------------------------------------------------------------------
-void YoloHelper::init()
+void YoloHelper::init(const string& cfgfilepath)
 {
+    get_cfgfile_details(cfgfilepath);
+
     dpuOpen();
     m_kernel = dpuLoadKernel("yolo");
     m_task = dpuCreateTask(m_kernel, 0);
@@ -347,7 +350,8 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
 
     //printf("c=%d,h=%d,w=%d,num=%d,sH=%d,sW=%d\n",channel,height,width,num,sHeight,sWidth);
     
-    vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
+    //vector<float> biases{116,90, 156,198, 373,326, 30,61, 62,45, 59,119, 10,13, 16,30, 33,23};
+
     int conf_box = 5 + m_classification_cnt;
     float swap[height * width][m_acnhor_count][conf_box]; //[s*s,3,1+4+class]
 
@@ -372,8 +376,8 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
                 
                 box.push_back((w + sigmoid(swap[h * width + w][c][0])) / width);
                 box.push_back((h + sigmoid(swap[h * width + w][c][1])) / height);
-                box.push_back(exp(swap[h * width + w][c][2]) * biases[2 * c + 2 * m_acnhor_count * num] / float(sWidth));
-                box.push_back(exp(swap[h * width + w][c][3]) * biases[2 * c + 2 * m_acnhor_count * num + 1] / float(sHeight));
+                box.push_back(exp(swap[h * width + w][c][2]) * m_anchors[2 * c + 2 * m_acnhor_count * num] / float(sWidth));
+                box.push_back(exp(swap[h * width + w][c][3]) * m_anchors[2 * c + 2 * m_acnhor_count * num + 1] / float(sHeight));
                 box.push_back(-1);
                 box.push_back(obj_score);
                 for (int p = 0; p < m_classification_cnt; p++) {
@@ -448,19 +452,17 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
     return blocks;
 }
 
- void YoloHelper::test_parse_cfgfile(const string cfgfilepath)
- {
+void YoloHelper::get_cfgfile_details(const string cfgfilepath)
+{
     vector<map<string,string>> blocks = parse_cfgfile(cfgfilepath);
-    vector<float> anchors;
-    int number_classes = -1;
-    
+
     for(auto block : blocks)
     {
         string section = block["type"];
-        if(section == "yolo")
+        if(section == "net")
         {
-            number_classes = std::stoi(block["classes"]);
-            anchors.clear();
+            m_classification_cnt = std::stoi(block["classes"]);
+            m_anchors.clear();
             
             std::string anchor_string = block.at("anchors");
             while (!anchor_string.empty())
@@ -469,22 +471,37 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
                 if (npos != -1)
                 {
                     float anchor = std::stof(trim(anchor_string.substr(0, npos)));
-                    anchors.push_back(anchor);
+                    m_anchors.push_back(anchor);
                     anchor_string.erase(0, npos + 1);
                 }
                 else
                 {
                     float anchor = std::stof(trim(anchor_string));
-                    anchors.push_back(anchor);
+                    m_anchors.push_back(anchor);
                     break;
                 }
             }
         }
+        else if(section == "userdefine")
+        {
+            m_confidence_thershold = std::stof(block["conf_thershold"]);
+            m_nms_thershold = std::stof(block["nms_thershold"]);
+        }
+        
     }
+}
 
-    cout << number_classes <<endl;
-    for(auto &anchor : anchors)
+ void YoloHelper::test_parse_cfgfile(const string cfgfilepath)
+ {
+    get_cfgfile_details(cfgfilepath);
+
+    cout << "m_classification_cnt:" << m_classification_cnt <<endl;
+    for(auto &anchor : m_anchors)
     {
-        cout<<anchor<<endl;
+        cout<<anchor<<",";
     }
+    cout<<endl;
+
+    cout<<"m_confidence_thershold:"<<m_confidence_thershold<<endl;
+    cout<<"m_nms_thershold:"<<m_nms_thershold<<endl;
  }

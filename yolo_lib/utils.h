@@ -12,7 +12,7 @@
 
 using namespace std;
 
-#define CONF 0.5
+#define CONF 0.85
 #define NMS_THRESHOLD 0.05f
 
 typedef struct {

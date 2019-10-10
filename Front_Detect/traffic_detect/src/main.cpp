@@ -61,16 +61,17 @@ void test_dnndk()
         waitKey(0);
 }
 
-void test_yolohelper(const string cfgfile_path)
+void test_yolohelper(const string& cfgfile_path)
 {
     YoloHelper yolo_helper;
     yolo_helper.test_parse_cfgfile(cfgfile_path);
 }
 
-void test_xlinx(string dir_path,string filename)
+void test_xlinx(string dir_path,string filename,const string& cfgfile)
 {
+    cout<<"cfgfile:"<<cfgfile<<endl;
     YoloHelper yolo_helper;
-    yolo_helper.init();
+    yolo_helper.init(cfgfile);
    
     std::map<int,std::pair<int,int>> detect_map;
     struct dirent *files_in_dir;  // Pointer for directory entry
@@ -112,6 +113,7 @@ void test_xlinx(string dir_path,string filename)
         gettimeofday(&inferStart, NULL);
 
         DPUTask* task = yolo_helper.get_task();
+        
         yolo_helper.runYOLO(task, test_img);
         vector<BBoxInfo> v_boxes = yolo_helper.get_inference_result();
         BBoxInfo t;
@@ -161,8 +163,9 @@ int main(int argc, char *argv[])
     string dir_path = "/root/sc/data/test";
     string filename = "/root/sc/data/detect_failed.txt";
 
-    //test_yolohelper(argv[1]);
-    test_xlinx(dir_path,filename);
+    string cfgfile = argv[1];
+    //test_yolohelper(cfgfile);
+    test_xlinx(dir_path,filename,cfgfile);
     //test_dnndk();
     
     return 0;

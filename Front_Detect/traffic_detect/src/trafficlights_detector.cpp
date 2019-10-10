@@ -31,7 +31,7 @@ void TrafficLightsDetector::init(int argc,char** argv)
     //load yolov3 model param
     //m_yolo_helper.parse_config_params(argc,argv);
     //
-    m_yolo_helper.init();
+    m_yolo_helper.init(argv[1]);
     init_ros(argc,argv);
 } 
 
@@ -61,14 +61,7 @@ void TrafficLightsDetector::on_recv_frame(const sensor_msgs::Image& image_source
     cv::Mat frame = cv_image->image; 
 
     set_current_frame(frame);
-/*
-    bool valid = roi_region_is_valid();
-    if(!valid)
-    {
-        ROS_INFO("invalid ROI,just return");
-        return;
-    }
-*/        
+       
     process_frame();
 }
 
