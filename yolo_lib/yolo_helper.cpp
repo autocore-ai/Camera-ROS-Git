@@ -159,7 +159,16 @@ void YoloHelper::init(const string& cfgfilepath)
     get_cfgfile_details(cfgfilepath);
 
     dpuOpen();
-    m_kernel = dpuLoadKernel("yolo");
+
+    if(m_modelname == "yolo_commonobj")
+    {
+        m_kernel = dpuLoadKernel("yolo_commonobj");
+    }
+    else if(m_modelname == "yolo")
+    {
+        m_kernel = dpuLoadKernel("yolo");
+    }
+    
     m_task = dpuCreateTask(m_kernel, 0);
 }
 
@@ -462,6 +471,9 @@ void YoloHelper::get_cfgfile_details(const string cfgfilepath)
         if(section == "net")
         {
             m_classification_cnt = std::stoi(block["classes"]);
+            m_modelname = block["modelname"];
+            m_width = std::stoi(block["width"]);
+            m_height = std::stoi(block["height"]);
             m_anchors.clear();
             
             std::string anchor_string = block.at("anchors");

@@ -92,7 +92,7 @@ set(CURR_DIR $(shell pwd))
 #endif
 
 set(PROJECT_EMBED_OBJ_FILES "")
-set(PROJECT_EMBED_FILES "model/dpu_yolo.elf")
+set(PROJECT_EMBED_FILES "model/dpu_yolo.elf" "model/dpu_yolo_commonobj.elf")
 foreach(FILENAME ${PROJECT_EMBED_FILES})
     get_filename_component(FILENAME_ONLY ${FILENAME} NAME)
     message(STATUS "FILENAME_ONLY is " ${FILENAME_ONLY})

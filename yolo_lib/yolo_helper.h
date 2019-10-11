@@ -58,6 +58,16 @@ public:
     {
         return m_boxes;
     };
+
+    inline int get_width()
+    {
+        return m_width;
+    }
+
+    inline int get_height()
+    {
+        return m_height;
+    }
 private:  
     vector<map<string,string>> parse_cfgfile(const string cfgfilepath);
     void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
@@ -88,6 +98,9 @@ private:
     float m_nms_thershold = 0.5;
     float m_confidence_thershold = 0.8;
     vector<float> m_anchors;
+    string m_modelname;
+    int m_width;
+    int m_height;
 
     vector<BBoxInfo> m_boxes; 
 //simulation environment

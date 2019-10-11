@@ -2,6 +2,7 @@
 ## requirements
 - ros installed on debian buster
 - dnndk installed
+- opencv
 
 ## compile
 

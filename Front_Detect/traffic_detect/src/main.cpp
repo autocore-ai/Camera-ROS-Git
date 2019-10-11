@@ -113,7 +113,7 @@ void test_xlinx(string dir_path,string filename,const string& cfgfile)
         gettimeofday(&inferStart, NULL);
 
         DPUTask* task = yolo_helper.get_task();
-        
+
         yolo_helper.runYOLO(task, test_img);
         vector<BBoxInfo> v_boxes = yolo_helper.get_inference_result();
         BBoxInfo t;
@@ -165,10 +165,9 @@ int main(int argc, char *argv[])
 
     string cfgfile = argv[1];
     //test_yolohelper(cfgfile);
-    test_xlinx(dir_path,filename,cfgfile);
+    //test_xlinx(dir_path,filename,cfgfile);
     //test_dnndk();
-    
-    return 0;
+    //return 0;
  
     TrafficLightsDetector detector;
     detector.init(argc,argv);

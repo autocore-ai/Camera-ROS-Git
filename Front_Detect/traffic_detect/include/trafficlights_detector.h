@@ -21,20 +21,6 @@ using namespace std;
 
 #include "yolo_helper.h"
 
-struct LightsStatus
-{
-    bool go=false;
-    bool goLeft=false;
-    bool goRight=true;
-
-    void clear()
-    {
-        go=false;
-        goLeft=false;
-        goRight=true;
-    }
-};
-
 struct LightsStatusSimu
 {
     bool find_red = false;
@@ -69,9 +55,10 @@ public:
     //处理收到的待检测帧
     void process_frame();
 
-    //判断图像是否可被裁剪
-    bool roi_region_is_valid();
 private:
+    //推理前预处理,不同模型可能会不一样
+    void preprocess_frame();
+
     //roi参数解析
     std::vector<int> visplit(std::string str,std::string pattern);
 
@@ -81,23 +68,16 @@ private:
     //ros subscriber/publisher
     bool init_ros(int argc,char** argv);
 private:
-    unsigned char status_encode(bool go_up,bool go_left,bool go_right);
-    unsigned char status_encode_simu();
+    unsigned char status_encode();
 private:
-    //roi参数. 图像裁剪用. 含义:从m*n(width*high)的图片中,以(x,y)为起点,裁剪出w*h的图片:
-    string m_roi_region;
-    int m_x;int m_y;int m_w;int m_h;
-
     //当前待处理图像
     cv::Mat m_frame;
-    //裁剪后的图像
-    cv::Mat m_frame_roi;
+    //预处理后准备推理的图像
+    cv::Mat m_frame_model_input;
 private:    
     YoloHelper m_yolo_helper;
-    //float m_prob_threshold = 0.5;//yolov3-tiny_for_trafficlights.txt中配置
 
     //当前frame的最终分析结果
-    LightsStatus m_lights_status;
     LightsStatusSimu m_lights_status_simu;
 
 private: 
