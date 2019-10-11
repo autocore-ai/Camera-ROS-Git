@@ -44,11 +44,7 @@ bool TrafficLightsDetector::init_ros(int argc,char** argv)
     
     sub_image_raw = node.subscribe(m_image_source_topic, 1, &TrafficLightsDetector::on_recv_frame,this);
     //sub_cam_cmd = node.subscribe(m_cam_cmd_topic,1,cmd_callback);
-
     pub_status_code = node.advertise<std_msgs::UInt8>(m_status_code_topic,1);
-    pub_traffic_status = node.advertise<dashboard_msgs::Cmd>(m_traffic_status_topic,1);
-    pub_traffic_active = node.advertise<dashboard_msgs::Proc>(m_traffic_active_topic,1);  
-    pub_image_raw = node.advertise<sensor_msgs::Image>(m_image_raw_topic,1);
 
     return ret;
 }
@@ -94,16 +90,7 @@ bool TrafficLightsDetector::load_parameters()
 
     private_nh.param<std::string>("status_code_topic", m_status_code_topic, "/traffic/tls_code");
     ROS_INFO("Setting staus_code_topic to %s", m_status_code_topic.c_str());
-    
-    private_nh.param<std::string>("image_raw_topic", m_image_raw_topic, "/traffic/image_raw");
-    ROS_INFO("Setting image_raw_topic to %s", m_image_raw_topic.c_str());
-
-    private_nh.param<std::string>("traffic_status_topic", m_traffic_status_topic, "/traffic/status");
-    ROS_INFO("Setting traffic_status_topic to %s", m_traffic_status_topic.c_str());
-    
-    private_nh.param<std::string>("traffic_active_topic", m_traffic_active_topic, "/traffic/active"); 
-    ROS_INFO("Setting traffic_active_topic to %s", m_traffic_active_topic.c_str());   
-
+     
     private_nh.param<bool>("simu_mode", m_simu_mode, false);
     ROS_INFO("Setting simu mode to %d", m_simu_mode);
 

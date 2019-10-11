@@ -165,9 +165,9 @@ int main(int argc, char *argv[])
 
     string cfgfile = argv[1];
     //test_yolohelper(cfgfile);
-    //test_xlinx(dir_path,filename,cfgfile);
+    test_xlinx(dir_path,filename,cfgfile);
     //test_dnndk();
-    //return 0;
+    return 0;
  
     TrafficLightsDetector detector;
     detector.init(argc,argv);

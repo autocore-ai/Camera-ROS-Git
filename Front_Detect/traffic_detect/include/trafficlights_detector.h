@@ -70,7 +70,7 @@ private:
 private:
     unsigned char status_encode();
 private:
-    //当前待处理图像
+    //收到的待处理图像
     cv::Mat m_frame;
     //预处理后准备推理的图像
     cv::Mat m_frame_model_input;
@@ -81,23 +81,14 @@ private:
     LightsStatusSimu m_lights_status_simu;
 
 private: 
-    std::string m_refresh_epoch;
+  
     std::string m_image_source_topic;
-    std::string m_cam_cmd_topic;
     std::string m_status_code_topic;
-    std::string m_image_raw_topic;
-    std::string m_traffic_status_topic;
-    std::string m_traffic_active_topic;
 
-    ros::Publisher pub_image_raw;
     ros::Publisher pub_status_code;
-    ros::Publisher pub_traffic_status;
-    ros::Publisher pub_traffic_active;
     ros::Subscriber sub_image_raw;
-    ros::Subscriber sub_cam_cmd;
 
     int m_seq = 0;
-
     bool m_simu_mode = false;
 };
 
