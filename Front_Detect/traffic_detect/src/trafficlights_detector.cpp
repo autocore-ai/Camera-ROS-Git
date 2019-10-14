@@ -152,41 +152,46 @@ void TrafficLightsDetector::process_frame()
         ROS_WARN("has not found box");
     }
     
-    int box_idx = 0;
-    for (BBoxInfo b : boxes)
+    string model_name = m_yolo_helper.get_modelname();
+    if( model_name == "yolo")
     {
-        //cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
-        //cout<<"label:"<< b.label<< endl;
-        cout<<"classId:"<< b.classId <<endl;
+        int box_idx = 0;
+        for (BBoxInfo b : boxes)
+        {
+            //cout<<"boundingbox:"<<b.box.x1<<","<<b.box.y1<<","<<b.box.x2<<","<<b.box.y2<<endl;
+            //cout<<"label:"<< b.label<< endl;
+            cout<<"classId:"<< b.classId <<endl;
 
-        //红绿灯4class red/yellow/green/background
-        int classid = b.classId;
-        if(classid == 3)
-        {
-            cout<<"background"<<endl;
+            //红绿灯4class red/yellow/green/background
+            int classid = b.classId;
+            if(classid == 3)
+            {
+                cout<<"background"<<endl;
+            }
+            else if(classid == 0)
+            {
+                m_lights_status_simu.find_red = true;
+                break;
+            }
+            else if(classid == 1)
+            {
+                m_lights_status_simu.find_yellow = true;
+                break;
+            }
+            else if(classid == 2)
+            {
+                m_lights_status_simu.find_green = true;
+                break;
+            }
         }
-        else if(classid == 0)
-        {
-            m_lights_status_simu.find_red = true;
-            break;
-        }
-        else if(classid == 1)
-        {
-            m_lights_status_simu.find_yellow = true;
-            break;
-        }
-        else if(classid == 2)
-        {
-            m_lights_status_simu.find_green = true;
-            break;
-        }
+        
+        // publish traffic status code
+        std_msgs::UInt8 status_msg;
+        status_msg.data = status_encode();
+        pub_status_code.publish(status_msg); 
     }
-
-    //send marked img with boundingbox
-    int imageIndex = 0;
-
-    // publish traffic status code
-    std_msgs::UInt8 status_msg;
-    status_msg.data = status_encode();
-    pub_status_code.publish(status_msg); 
+    else if(model_name == "yolo_commonobj")
+    {
+        //publish nothing now
+    }
 }
