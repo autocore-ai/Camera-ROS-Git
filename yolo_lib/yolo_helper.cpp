@@ -352,7 +352,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     
     cv::imshow("detect result", frame);
     cv::waitKey(30);
-    cv::imwrite("/root/sc/detect_result.jpg",frame);
+    //cv::imwrite("/root/detect_result.jpg",frame);
     //cout<<"postProcess end "<<endl;
 }
 
