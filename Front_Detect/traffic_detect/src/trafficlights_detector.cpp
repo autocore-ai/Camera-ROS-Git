@@ -131,6 +131,11 @@ void TrafficLightsDetector::preprocess_frame()
     int width = m_yolo_helper.get_width();
     int height = m_yolo_helper.get_height();
     cv::resize(m_frame,m_frame_model_input,cv::Size(width,height));
+
+    cv::imshow("model input", m_frame_model_input);
+    cv::waitKey(30);
+
+    ROS_INFO("resize img to %d x %d", width,height);
 }
 
 //处理收到的待检测帧

@@ -11,12 +11,23 @@
 #include <sensor_msgs/Image.h>
 #include <stdio.h>
 #include <iostream>
+#include <csignal>
+#include <unistd.h>
 
 using namespace std;
 using namespace cv;
 
+void signal_handle(int signum)
+{
+    cout<<"ctrl + c,exit"<<endl;
+    exit(0);
+}
+
 int main(int argc,char **argv)
 {
+    signal(SIGINT,signal_handle);
+    signal(SIGTERM,signal_handle);
+
     ros::init(argc, argv, "opencv_ros");
 	ros::NodeHandle nh;
 
@@ -32,48 +43,55 @@ int main(int argc,char **argv)
     
 	ros::Publisher  camera_pub = nh.advertise<sensor_msgs::Image>("/usb_cam/image_raw", 1);
 
-    DIR *dir = opendir(test_img_dir.c_str());
-    if(dir == NULL)
-    {
-        cout<<"can not open dir"<<endl;
-        return -1;
-    }
-    
     struct dirent *files_in_dir;  // Pointer for directory entry
-    while ((files_in_dir = readdir(dir)) != NULL) 
+    while(1)
     {
-        bool jpg_file = (strstr(files_in_dir->d_name, "jpg") != NULL);
-        bool png_file = (strstr(files_in_dir->d_name, "png") != NULL);
-        if(!jpg_file && !png_file)
+        DIR *dir = opendir(test_img_dir.c_str());
+        if(dir == NULL)
         {
-            continue;
-        }
-           
-        cout<<files_in_dir->d_name<<endl;
-        string full_file_name = test_img_dir + '/' + files_in_dir->d_name;
-        cout<<full_file_name<<endl;
-
-        cv::Mat frame = cv::imread(full_file_name,CV_LOAD_IMAGE_COLOR);
-        if(frame.empty())
-        {
-            cout<<"empty frame:"<<full_file_name<<endl;
-            return -1;       
+            cout<<"can not open dir"<<endl;
+            return -1;
         }
 
-    	ros::Rate loop_rate(5);
-    	//while((nh.ok())&&(!frame.empty()))
-    	{
-    	    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-            msg->header.frame_id = "camera";
-    	    msg->header.stamp.sec = ros::Time::now().sec;
-    	    msg->header.stamp.nsec = ros::Time::now().nsec;
-            camera_pub.publish(msg);
-    		
-    		ros::spinOnce();
-    	    loop_rate.sleep();
-    	}
+        while ((files_in_dir = readdir(dir)) != NULL) 
+        {
+            bool jpg_file = (strstr(files_in_dir->d_name, "jpg") != NULL);
+            bool png_file = (strstr(files_in_dir->d_name, "png") != NULL);
+            if(!jpg_file && !png_file)
+            {
+                continue;
+            }
+            
+            //cout<<files_in_dir->d_name<<endl;
+            string full_file_name = test_img_dir + '/' + files_in_dir->d_name;
+            cout<<full_file_name<<endl;
+
+            cv::Mat frame = cv::imread(full_file_name,CV_LOAD_IMAGE_COLOR);
+            if(frame.empty())
+            {
+                cout<<"empty frame:"<<full_file_name<<endl;
+                return -1;       
+            }
+
+            ros::Rate loop_rate(5);
+            //while((nh.ok())&&(!frame.empty()))
+            {
+                sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
+                msg->header.frame_id = "camera";
+                msg->header.stamp.sec = ros::Time::now().sec;
+                msg->header.stamp.nsec = ros::Time::now().nsec;
+                camera_pub.publish(msg);
+                cout << "publish " << full_file_name << endl;
+                ros::spinOnce();
+                loop_rate.sleep();
+            }
+        }
+
+
+        cout << "send done" <<endl;
+
+        sleep(30);
     }
 
-
-	return 0;
+    return 0;
 }

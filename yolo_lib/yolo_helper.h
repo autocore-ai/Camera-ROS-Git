@@ -54,10 +54,11 @@ public:
     }
     void test_parse_cfgfile(const string cfgfilepath);
     void get_cfgfile_details(const string cfgfilepath);
+    void print_cfgfile();
     const vector<BBoxInfo>& get_inference_result()
     {
         return m_boxes;
-    };
+    }
 
     inline int get_width()
     {
@@ -68,6 +69,12 @@ public:
     {
         return m_height;
     }
+
+    inline string& get_modelname()
+    {
+        return m_modelname;
+    }
+
 private:  
     vector<map<string,string>> parse_cfgfile(const string cfgfilepath);
     void setInputImageForYOLO(DPUTask *task, const Mat &frame, float *mean);
@@ -98,6 +105,7 @@ private:
     float m_nms_thershold = 0.5;
     float m_confidence_thershold = 0.8;
     vector<float> m_anchors;
+    vector<string> m_objnames;
     string m_modelname;
     int m_width;
     int m_height;

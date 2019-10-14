@@ -157,6 +157,7 @@ std::vector<BBoxInfo> YoloHelper::judge_red_yellow_green(const cv::Mat& image_or
 void YoloHelper::init(const string& cfgfilepath)
 {
     get_cfgfile_details(cfgfilepath);
+    print_cfgfile();
 
     dpuOpen();
 
@@ -349,6 +350,9 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         }
     }
     
+    cv::imshow("detect result", frame);
+    cv::waitKey(30);
+    cv::imwrite("/root/sc/detect_result.jpg",frame);
     //cout<<"postProcess end "<<endl;
 }
 
@@ -493,6 +497,22 @@ void YoloHelper::get_cfgfile_details(const string cfgfilepath)
                     break;
                 }
             }
+
+            std::string objnames = block.at("objnames");
+            while (!objnames.empty())
+            {
+                int npos = objnames.find_first_of(',');
+                if (npos != -1)
+                {      
+                    m_objnames.emplace_back(trim(objnames.substr(0, npos)));
+                    objnames.erase(0, npos + 1);
+                }
+                else
+                {
+                    m_objnames.emplace_back(trim(objnames));
+                    break;
+                }
+            }
         }
         else if(section == "userdefine")
         {
@@ -503,10 +523,14 @@ void YoloHelper::get_cfgfile_details(const string cfgfilepath)
     }
 }
 
- void YoloHelper::test_parse_cfgfile(const string cfgfilepath)
- {
+void YoloHelper::test_parse_cfgfile(const string cfgfilepath)
+{
     get_cfgfile_details(cfgfilepath);
+    print_cfgfile();
+}
 
+void YoloHelper::print_cfgfile()
+{
     cout << "m_classification_cnt:" << m_classification_cnt <<endl;
     for(auto &anchor : m_anchors)
     {
@@ -516,4 +540,11 @@ void YoloHelper::get_cfgfile_details(const string cfgfilepath)
 
     cout<<"m_confidence_thershold:"<<m_confidence_thershold<<endl;
     cout<<"m_nms_thershold:"<<m_nms_thershold<<endl;
- }
+
+    cout<<"objnames:\n";
+    for(auto &objname : m_objnames)
+    {
+        cout<<objname<<",";
+    }
+    cout<<endl;
+}
