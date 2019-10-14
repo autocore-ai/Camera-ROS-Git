@@ -5,10 +5,16 @@
 - opencv
 
 ## compile
+- mkdir -p ws/src
+- download codes into src
+- cd src && catkin_init_workspace
+- cd ../ && catkin_make
 
 ## run app
 - source devel/setup.bash
 - roslaunch traffic_detect traffic_detect.launch
+
+user cfg is in traffic_detect/models/yolov3.cfg 
 
 ## test
 modify traffic_detect/src/main.cpp
