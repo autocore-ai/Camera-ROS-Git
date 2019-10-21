@@ -111,6 +111,9 @@ private:
     int m_height;
 
     vector<BBoxInfo> m_boxes; 
+
+    //预处理后准备推理的图像
+    cv::Mat m_frame_model_input;
 //simulation environment
 public:
     int judge_lights_color(Mat test_img);

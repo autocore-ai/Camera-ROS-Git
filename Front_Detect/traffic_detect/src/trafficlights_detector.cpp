@@ -43,8 +43,8 @@ bool TrafficLightsDetector::init_ros(int argc,char** argv)
     bool ret = load_parameters();
     
     sub_image_raw = node.subscribe(m_image_source_topic, 1, &TrafficLightsDetector::on_recv_frame,this);
-    //sub_cam_cmd = node.subscribe(m_cam_cmd_topic,1,cmd_callback);
     pub_status_code = node.advertise<std_msgs::UInt8>(m_status_code_topic,1);
+    pub_image_detected = node.advertise<sensor_msgs::Image>(m_image_detected_topic,1);
 
     return ret;
 }
@@ -91,6 +91,9 @@ bool TrafficLightsDetector::load_parameters()
     private_nh.param<std::string>("status_code_topic", m_status_code_topic, "/traffic/tls_code");
     ROS_INFO("Setting staus_code_topic to %s", m_status_code_topic.c_str());
      
+    private_nh.param<std::string>("image_detected_topic", m_image_detected_topic, "/traffic/image_detected");
+    ROS_INFO("Setting image_detected_topic to %s", m_image_detected_topic.c_str());
+
     private_nh.param<bool>("simu_mode", m_simu_mode, false);
     ROS_INFO("Setting simu mode to %d", m_simu_mode);
 
@@ -145,8 +148,9 @@ void TrafficLightsDetector::process_frame()
 
     m_lights_status_simu.clear();
     
-    preprocess_frame();
-    std::vector<BBoxInfo> boxes = m_yolo_helper.do_inference(m_frame_model_input,m_simu_mode);
+    //preprocess_frame();
+    //send original frame to yolo_helper,yolo_helper will do preprocess
+    std::vector<BBoxInfo> boxes = m_yolo_helper.do_inference(m_frame,m_simu_mode);
 
     cout<<"box_size="<<boxes.size()<<endl;
     if(boxes.size() == 0)
@@ -191,10 +195,29 @@ void TrafficLightsDetector::process_frame()
         std_msgs::UInt8 status_msg;
         status_msg.data = status_encode();
         pub_status_code.publish(status_msg); 
+
+/* 
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", m_frame).toImageMsg();
+        msg->header.frame_id = "trafficlights";
+        msg->header.stamp.sec = ros::Time::now().sec;
+        msg->header.stamp.nsec = ros::Time::now().nsec;
+        pub_image_detected.publish(msg);
+
+        std::cout << "publish detected image"<< std::endl;
+*/   
     }
     else if(model_name == "yolo_commonobj")
     {
-        //publish nothing now
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", m_frame).toImageMsg();
+        msg->header.frame_id = "commonobj";
+        msg->header.stamp.sec = ros::Time::now().sec;
+        msg->header.stamp.nsec = ros::Time::now().nsec;
+        pub_image_detected.publish(msg);
+
+        std::cout << "publish detected image"<< std::endl;
+
+        //printf("save frame:%d,%d\n",m_frame.rows,m_frame.cols);
+        //cv::imwrite("/root/detect_result.jpg",m_frame);
     }
 
     auto end = std::chrono::system_clock::now();

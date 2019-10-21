@@ -84,8 +84,10 @@ private:
   
     std::string m_image_source_topic;
     std::string m_status_code_topic;
+    std::string m_image_detected_topic;
 
     ros::Publisher pub_status_code;
+    ros::Publisher pub_image_detected;
     ros::Subscriber sub_image_raw;
 
     int m_seq = 0;

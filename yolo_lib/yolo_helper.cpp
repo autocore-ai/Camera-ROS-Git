@@ -215,9 +215,13 @@ void YoloHelper::setInputImageForYOLO(DPUTask *task, const Mat &frame, float *me
     int size = dpuGetInputTensorSize(task, INPUT_NODE);
     int8_t *data = dpuGetInputTensorAddress(task, INPUT_NODE);
 
-    cv::cvtColor(frame, frame, CV_BGR2RGB);
-    unsigned char *img_data = frame.data;  //h*w*c rgb
+    cv::resize(frame,m_frame_model_input,cv::Size(width,height));
+    ROS_INFO("resize img to %d x %d", width,height);
 
+    cv::cvtColor(m_frame_model_input, m_frame_model_input, CV_BGR2RGB);
+    unsigned char *img_data = m_frame_model_input.data;  //h*w*c r
+    
+    //set input to dpu kernerl
     float scale = dpuGetInputTensorScale(task, INPUT_NODE);
     for (int i = 0; i < size; ++i)
     {
@@ -312,6 +316,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 
     float h = frame.rows;
     float w = frame.cols;
+    
     for (size_t i = 0; i < res.size(); ++i)
     {
         float xmin = (res[i][0] - res[i][2] / 2.0) * w + 1.0;
@@ -320,7 +325,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         float ymax = (res[i][1] + res[i][3] / 2.0) * h + 1.0;
         
         //cout << res[i][res[i][4] + 6] << " ";
-        //cout << xmin << " " << ymin << " " << xmax << " " << ymax << endl;
+        printf("(%f,%f)--(%f,%f)\n",xmin,ymin,xmax,ymax);
 
         //x,y,c_x,c_y,index,confidence,prob1,prob2...
         int class_id = res[i][4];
@@ -352,6 +357,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
     
     //cv::imshow("detect result", frame);
     //cv::waitKey(30);
+    //printf("save frame:%d,%d\n",frame.rows,frame.cols);
     //cv::imwrite("/root/detect_result.jpg",frame);
     //cout<<"postProcess end "<<endl;
 }
@@ -405,7 +411,15 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
 void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
     int w, int h, int netw, int neth, int relative) 
 {
-    //printf("%s begin \n",__FUNCTION__);
+    //图像的前处理就是直接resize的,所以预测出来的box中心以及宽高占原始图像的比例不需要修改.
+    //比如100 x 100图像中间有个50 x 50的box,resize到200 x 150,相应的box会变为100 x 75,中心仍旧在图像正中间位置
+}
+
+/* 
+void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
+    int w, int h, int netw, int neth, int relative) 
+{
+    printf("%d,%d-->%d,%d\n",w,h,netw,neth);
     
     int new_w=0;
     int new_h=0;
@@ -426,7 +440,7 @@ void YoloHelper::correct_region_boxes(vector<vector<float>>& boxes, int n,
 
     //printf("%s end \n",__FUNCTION__);
 }
-
+*/
 
  vector<map<string,string>> YoloHelper::parse_cfgfile(const string cfgfilepath)
  {
