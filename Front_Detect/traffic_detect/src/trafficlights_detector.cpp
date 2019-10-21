@@ -132,8 +132,8 @@ void TrafficLightsDetector::preprocess_frame()
     int height = m_yolo_helper.get_height();
     cv::resize(m_frame,m_frame_model_input,cv::Size(width,height));
 
-    cv::imshow("model input", m_frame_model_input);
-    cv::waitKey(30);
+    //cv::imshow("model input", m_frame_model_input);
+    //cv::waitKey(30);
 
     ROS_INFO("resize img to %d x %d", width,height);
 }
@@ -141,6 +141,8 @@ void TrafficLightsDetector::preprocess_frame()
 //处理收到的待检测帧
 void TrafficLightsDetector::process_frame()
 {
+    auto begin = std::chrono::system_clock::now();
+
     m_lights_status_simu.clear();
     
     preprocess_frame();
@@ -194,4 +196,8 @@ void TrafficLightsDetector::process_frame()
     {
         //publish nothing now
     }
+
+    auto end = std::chrono::system_clock::now();
+    auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    std::cout << "process_frame:" << elsp.count() << std::endl;
 }
