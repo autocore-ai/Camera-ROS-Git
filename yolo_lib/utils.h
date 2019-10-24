@@ -12,8 +12,8 @@
 
 using namespace std;
 
-#define CONF 0.85
-#define NMS_THRESHOLD 0.05f
+//#define CONF 0.85
+//#define NMS_THRESHOLD 0.05f
 
 typedef struct {
     int w;
@@ -28,7 +28,7 @@ void free_image(image m);
 float sigmoid(float p);
 float overlap(float x1, float w1, float x2, float w2);
 float cal_iou(vector<float> box, vector<float>truth);
-vector<vector<float>> applyNMS(vector<vector<float>>& boxes,int classes, const float thres);
+vector<vector<float>> applyNMS(vector<vector<float>>& boxes,int classes, const float thres,const float conf_thres);
 void get_output(int8_t* dpuOut, int sizeOut, float scale, int oc, int oh, int ow, vector<float>& result);
 float get_pixel(image m, int x, int y, int c);
 void set_pixel(image m, int x, int y, int c, float val);

@@ -24,7 +24,7 @@ float cal_iou(vector<float> box, vector<float>truth) {
     return inter_area * 1.0 / union_area;
 }
 
-vector<vector<float>> applyNMS(vector<vector<float>>& boxes,int classes, const float thres) {
+vector<vector<float>> applyNMS(vector<vector<float>>& boxes,int classes, const float thres,const float conf_thres) {
     vector<pair<int, float>> order(boxes.size());
     vector<vector<float>> result;
 
@@ -42,7 +42,7 @@ vector<vector<float>> applyNMS(vector<vector<float>>& boxes,int classes, const f
         for (size_t _i = 0; _i < boxes.size(); ++_i) {
             size_t i = order[_i].first;
             if (!exist_box[i]) continue;
-            if (boxes[i][6 + k] < CONF) {
+            if (boxes[i][6 + k] < conf_thres) {
                 exist_box[i] = false;
                 continue;
             }

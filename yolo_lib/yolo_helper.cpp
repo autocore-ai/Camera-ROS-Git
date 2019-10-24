@@ -305,6 +305,8 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 
         // Store the object detection frames as coordinate information  
         detect(boxes, result, channel, height, width, i, sHeight, sWidth);
+
+        ROS_INFO("%s: detect %d boxes conf > %f",output_node.c_str(), boxes.size(),m_confidence_thershold);
     }
 
     // Restore the correct coordinate frame of the original image 
@@ -312,7 +314,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
 
     // Apply the computation for NMS    
     //cout << "boxes size: " << boxes.size() << endl;
-    vector<vector<float>> res = applyNMS(boxes, m_classification_cnt, NMS_THRESHOLD);
+    vector<vector<float>> res = applyNMS(boxes, m_classification_cnt, m_nms_thershold,m_confidence_thershold);
 
     float h = frame.rows;
     float w = frame.cols;
@@ -331,7 +333,7 @@ void YoloHelper::postProcess(DPUTask *task, Mat &frame, int sWidth, int sHeight)
         int class_id = res[i][4];
         int classprob_index = res[i][4] + 6;
         float classprob = res[i][classprob_index];
-        if (classprob > CONF)
+        if (classprob > m_confidence_thershold)
         {
             int type = res[i][4];
 
@@ -389,7 +391,7 @@ void YoloHelper::detect(vector<vector<float>> &boxes, vector<float> result,
             for (int c = 0; c < m_acnhor_count; ++c) {
                 float obj_score = sigmoid(swap[h * width + w][c][4]);
                 
-                if (obj_score < CONF)
+                if (obj_score < m_confidence_thershold)
                     continue;
                 vector<float> box;
                 
