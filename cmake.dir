@@ -1,0 +1,5 @@
+set(TENSORFLOW_DIR "/home/user/sc/tensorflow")  #change this to your own path!
+include_directories(${TENSORFLOW_DIR})
+include_directories(${TENSORFLOW_DIR}/tensorflow/lite/tools/make/downloads/flatbuffers/include/)
+
+link_directories("${TENSORFLOW_DIR}/tensorflow/lite/tools/make/gen/generic-aarch64_armv8-a/lib")
