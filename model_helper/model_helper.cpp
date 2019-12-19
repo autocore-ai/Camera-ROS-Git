@@ -67,14 +67,14 @@ int MobilenetV1::inference(const std::vector<uint8_t>& input,const std::unique_p
         if (out_tensor->type == kTfLiteUInt8)
         {
             const int num_values = out_tensor->bytes;
-            cout<<"num_values:"<<num_values<<endl;
+            //cout<<"num_values:"<<num_values<<endl;
             output_data.resize(out_idx + num_values);
             const uint8_t *output = interpreter->typed_output_tensor<uint8_t>(i);
             for (int j = 0; j < num_values; ++j)
             {
                 //cout<<"output[j]:"<<(uint8_t)(output[j])<<endl;
-                cout<<"zero_point:"<<out_tensor->params.zero_point<<endl;
-                cout<<"scale:"<<out_tensor->params.scale<<endl;
+                //cout<<"zero_point:"<<out_tensor->params.zero_point<<endl;
+                //cout<<"scale:"<<out_tensor->params.scale<<endl;
                 output_data[out_idx++] = (output[j] - out_tensor->params.zero_point) * out_tensor->params.scale;
             }
         }
@@ -96,10 +96,10 @@ int MobilenetV1::inference(const std::vector<uint8_t>& input,const std::unique_p
         }
     }
 
-    cout<<"output_data size:"<<output_data.size()<<endl;
+    //cout<<"output_data size:"<<output_data.size()<<endl;
     for(auto data : output_data)
     {
-        cout<<"prob:"<<data<<endl;
+        //cout<<"prob:"<<data<<endl;
     }
 
     auto it = std::max_element(output_data.begin(), output_data.end());

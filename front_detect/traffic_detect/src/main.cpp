@@ -82,9 +82,11 @@ int main(int argc, char *argv[])
     //test();
     //return 0;
 
-    TrafficLightsDetector detector;
-    detector.init(argc,argv);
-  
+    //TrafficLightsDetector detector;
+    //detector.init(argc,argv);
+    
+    DataPrepare dp(argc,argv);
+
     ros::spin();
     
     return 0;
