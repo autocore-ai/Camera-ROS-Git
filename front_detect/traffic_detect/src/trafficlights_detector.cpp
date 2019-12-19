@@ -286,7 +286,6 @@ void DataPrepare::on_recv_signal_roi(const autoware_msgs::Signals::ConstPtr &ext
     previous_timestamp = frame_header_.stamp;
 }
 
-
 void DataPrepare::on_recv_frame(const sensor_msgs::Image &image_source)
 {
     cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_source, "bgr8");
@@ -307,15 +306,15 @@ void DataPrepare::on_recv_signal_state(const visualization_msgs::MarkerArray::Co
 
     for (visualization_msgs::Marker marker:marker_array->markers)
     {
-        if(marker.color.r == 0.0 && color_black.g == 0.0 && color_black.b == 0.0f)
+        if(marker.color.r == 0.0 && marker.color.g == 0.0 && marker.color.b == 0.0f)
         {
             index++;
+            //cout<<"index="<<index<<endl;
             continue;
         }
         
         {
             switch(index)
-
             {
             case 0:
                 cout<<"red"<<endl;
