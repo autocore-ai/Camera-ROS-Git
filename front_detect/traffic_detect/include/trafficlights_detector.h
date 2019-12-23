@@ -21,49 +21,44 @@ using namespace std;
 #include "model_helper.h"
 #include "Context.h"
 
-enum class LightColor
-{
-    red = 2,
-    yellow = 1,
-    green = 0
-};
-
 class TrafficLightsDetector
 {
 public:
     TrafficLightsDetector();
-    TrafficLightsDetector(string model_path);
     ~TrafficLightsDetector();
 public:
+    //
+    void init(int argc,char** argv);
+
     //
     void on_recv_frame(const sensor_msgs::Image& image_source);
 
     //
     void on_recv_signal_roi(const autoware_msgs::Signals::ConstPtr &extracted_pos);
 
-    //
-    void init(int argc,char** argv);
+    //for self debug
+    void test(const cv::Mat image);
+private:
+    //ros subscriber/publisher
+    bool init_ros(int argc,char** argv);
     
+    //read .launch file
+    bool load_parameters();
+    
+    //
+    void preprocess_frame(const cv::Mat& frame);
+
+    void determin_state(LightState in_current_state,Context& in_out_signal_context);
+
+    void publish_traffic_light(std::vector<Context> contexts);
+
+    void publish_image(std::vector<Context> contexts);
+
     //
     void set_current_frame(cv::Mat frame);
 
     //
     void process_frame();
-private:
-    //
-    void preprocess_frame(const cv::Mat& frame);
-
-    //.launch文件参数加载
-    bool load_parameters();
-
-    //ros subscriber/publisher
-    bool init_ros(int argc,char** argv);
-
-    unsigned char status_encode();
-
-    void publish_traffic_light(std::vector<Context> contexts);
-
-    //void publish_debug_image(const cv::Mat frame);
 private:
     //
     std_msgs::Header frame_header_;
@@ -73,17 +68,15 @@ private:
     cv::Mat frame_model_input_;
     //
     string model_path_;
+    //
+    int change_state_threshold_=5;
 private:    
     MobilenetV1 mv1_;
-
-    //result of model inference
-    LightColor lights_color_;
 
     // The vector of data structure to save traffic light state, position, ...etc
     std::vector<Context> contexts_;
 private:  
     std::string image_source_topic_;
-    std::string signal_state_topic_;
     std::string image_detected_topic_;
 
     ros::Publisher signal_state_puber_;
@@ -95,6 +88,17 @@ private:
     const int32_t kTrafficLightRed = 0;
     const int32_t kTrafficLightGreen = 1;
     const int32_t kTrafficLightUnknown = 2;
+
+     /* Light state transition probably happen in Japanese traffic light */
+    const LightState kStateTransitionMatrix[4][4] = {
+        /* current: */
+        /* GREEN   , YELLOW    , RED    , UNDEFINED  */
+        /* -------------------------------------------  */
+        {GREEN     , YELLOW    , YELLOW    , GREEN}  ,  /* | previous = GREEN */
+        {UNDEFINED , YELLOW    , RED       , YELLOW} ,  /* | previous = YELLOW */
+        {GREEN     , RED       , RED       , RED}    ,  /* | previous = RED */
+        {GREEN     , YELLOW    , RED       , UNDEFINED} /* | previous = UNDEFINED */
+    };
 };
 
 

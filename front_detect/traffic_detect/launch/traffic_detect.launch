@@ -1,11 +1,14 @@
 <launch>
 	<!-- declare arguments with default values -->
     <arg name="image_source_topic" default="/image_raw"/>
-    <arg name="image_detected_topic" default="/traffic/image_detected"/>
-    <arg name="model_path" default="/home/user/sc_ws/src/mobilenet_v1_simu_edgetpu.tflite"/>
+    <arg name="image_detected_topic" default="tlr_superimpose_image"/>
+    <arg name="model_path" default="/home/user/sc_ws/src/trafficlights_mobilenetv1_edgetpu.tflite"/>
+    <arg name="change_state_threshold" default="5"/>
+
     <node pkg="traffic_detect" type="traffic_detect" name="traffic_detect" args="" output="screen">   
     <param name="image_source_topic" value="$(arg image_source_topic)"/>
     <param name="image_detected_topic" value="$(arg image_detected_topic)"/>
     <param name="model_path" value="$(arg model_path)"/>
+    <param name="change_state_threshold" value="$(arg change_state_threshold)"/>
     </node>
 </launch>

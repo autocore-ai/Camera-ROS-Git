@@ -44,6 +44,25 @@ bool TrafficLightsDetector::init_ros(int argc, char **argv)
     return ret;
 }
 
+bool TrafficLightsDetector::load_parameters()
+{
+    ros::NodeHandle private_nh("~");
+
+    private_nh.param<std::string>("image_source_topic", image_source_topic_, "/image_raw");
+    ROS_INFO("Setting image_source_topic to %s", image_source_topic_.c_str());
+
+    private_nh.param<std::string>("image_detected_topic", image_detected_topic_, "");
+    ROS_INFO("Setting image_detected_topic to %s", image_detected_topic_.c_str());
+
+    private_nh.param<std::string>("model_path", model_path_, "");
+    ROS_INFO("Setting model_path to %s", model_path_.c_str());
+
+    private_nh.param<int>("change_state_threshold", change_state_threshold_, 5);
+	ROS_INFO("change_state_threshold: %d", change_state_threshold_);
+
+    return true;
+}
+
 void TrafficLightsDetector::on_recv_frame(const sensor_msgs::Image &image_source)
 {
     //ROS_INFO("traffic_detect:image_callback!!!!!!!");
@@ -94,74 +113,61 @@ void TrafficLightsDetector::on_recv_signal_roi(const autoware_msgs::Signals::Con
             input.insert(input.end(), frame_model_input_.data, frame_model_input_.data + width * height * 3);
         }
         int cls_id = mv1_.inference(input);
-        lights_color_ = static_cast<LightColor>(cls_id);
+        
+        LightState current_state = static_cast<LightState>(cls_id);
 
-        /*
-        // Get current state of traffic light from current frame
-        LightState current_state = recognizer.RecognizeLightState(roi);
-
-        // Determine the final state by referring previous state
-        context.lightState = DetermineState(context.lightState, // previous state
-                                            current_state,      // current state
-                                            &(context.stateJudgeCount)); // counter to record how many times does state recognized
-*/
+        determin_state(current_state, context);
     }
+
+    publish_traffic_light(contexts_);
+    publish_image(contexts_);
 
     // Save timestamp of this frame so that same frame has never been process again
     previous_timestamp = frame_header_.stamp;
-}
-
-bool TrafficLightsDetector::load_parameters()
-{
-    ros::NodeHandle private_nh("~");
-
-    private_nh.param<std::string>("image_source_topic", image_source_topic_, "/image_raw");
-    ROS_INFO("Setting image_source_topic to %s", image_source_topic_.c_str());
-
-    private_nh.param<std::string>("status_code_topic", signal_state_topic_, "");
-    ROS_INFO("Setting signal_state_topic to %s", signal_state_topic_.c_str());
-
-    private_nh.param<std::string>("image_detected_topic", image_detected_topic_, "");
-    ROS_INFO("Setting image_detected_topic to %s", image_detected_topic_.c_str());
-
-    private_nh.param<std::string>("model_path", model_path_, "");
-    ROS_INFO("Setting model_path to %s", model_path_.c_str());
-
-    return true;
-}
-
-unsigned char TrafficLightsDetector::status_encode()
-{
-    unsigned char code = 4;
-
-    if (lights_color_ == LightColor::red)
-    {
-        code = 0;
-    }
-    else if (lights_color_ == LightColor::yellow || lights_color_ == LightColor::green)
-    {
-        code = 6;
-    }
-
-    cout << "code=" << (int)code << endl;
-
-    return code;
 }
 
 void TrafficLightsDetector::preprocess_frame(const cv::Mat &frame)
 {
     int width = mv1_.get_width();
     int height = mv1_.get_height();
-    //cv::cvtColor(frame_, frame_, CV_RGB2BGR);
     cv::resize(frame, frame_model_input_, cv::Size(width, height));
     cv::cvtColor(frame_model_input_, frame_model_input_, CV_RGB2BGR);
 
     ROS_INFO("resize img to %d x %d", width, height);
 }
 
+void TrafficLightsDetector::determin_state(LightState in_current_state,
+                                           Context& in_out_signal_context)
+{
+	//if reported state by classifier is different than the previously stored
+	if (in_current_state != in_out_signal_context.lightState)
+	{
+		//and also different from the previous difference
+		if (in_current_state != in_out_signal_context.newCandidateLightState)
+		{
+			//set classifier result as a candidate
+			in_out_signal_context.newCandidateLightState = in_current_state;
+			in_out_signal_context.stateJudgeCount = 0;
+		}
+		else
+		{
+			//if classifier returned the same result previously increase its confidence
+			in_out_signal_context.stateJudgeCount++;
+		}
+	}
+	//if new candidate has been found enough times, change state to the new candidate
+	if (in_out_signal_context.stateJudgeCount >= change_state_threshold_)
+	{
+		in_out_signal_context.lightState = in_current_state;
+	}
+
+} 
+
+
 //处理收到的待检测帧
 void TrafficLightsDetector::process_frame()
 {
+    /*
     auto begin = std::chrono::system_clock::now();
 
     preprocess_frame(frame_);
@@ -178,6 +184,7 @@ void TrafficLightsDetector::process_frame()
     auto end = std::chrono::system_clock::now();
     auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     std::cout << "process_frame:" << elsp.count() << std::endl;
+    */
 }
 
 void TrafficLightsDetector::publish_traffic_light(std::vector<Context> contexts)
@@ -218,6 +225,81 @@ void TrafficLightsDetector::publish_traffic_light(std::vector<Context> contexts)
         previous_state = topic.traffic_light;
     }
 }
+
+void TrafficLightsDetector::publish_image(std::vector<Context> contexts)
+{
+    // Copy the frame image for output
+	cv::Mat result_image = frame_.clone();
+
+	// Define information for written label
+	std::string label;
+	const int kFontFace = cv::FONT_HERSHEY_COMPLEX_SMALL;
+	const double kFontScale = 0.8;
+	int font_baseline = 0;
+	CvScalar label_color;
+
+    for (const auto ctx: contexts_)
+	{
+		// Draw superimpose result on image
+		circle(result_image, ctx.redCenter, ctx.lampRadius, CV_RGB(255, 0, 0), 1, 0);
+		circle(result_image, ctx.yellowCenter, ctx.lampRadius, CV_RGB(255, 255, 0), 1, 0);
+		circle(result_image, ctx.greenCenter, ctx.lampRadius, CV_RGB(0, 255, 0), 1, 0);
+
+		// Draw recognition result on image
+		switch (ctx.lightState)
+		{
+			case GREEN:
+				label = "GREEN";
+				label_color = CV_RGB(0, 255, 0);
+				break;
+			case YELLOW:
+				label = "YELLOW";
+				label_color = CV_RGB(255, 255, 0);
+				break;
+			case RED:
+				label = "RED";
+				label_color = CV_RGB(255, 0, 0);
+				break;
+			case UNDEFINED:
+				label = "UNKNOWN";
+				label_color = CV_RGB(0, 0, 0);
+		}
+
+		if (ctx.leftTurnSignal)
+		{
+			label += " LEFT";
+		}
+		if (ctx.rightTurnSignal)
+		{
+			label += " RIGHT";
+		}
+		//add lane # text
+		label += " " + std::to_string(ctx.closestLaneId);
+
+		cv::Point label_origin = cv::Point(ctx.topLeft.x, ctx.botRight.y + font_baseline);
+
+		cv::putText(result_image, label, label_origin, kFontFace, kFontScale, label_color);
+	}
+
+    // Publish superimpose result image
+    cv_bridge::CvImage converter;
+    converter.header = frame_header_;
+    converter.encoding = sensor_msgs::image_encodings::BGR8;
+    converter.image = result_image;
+    image_detected_puber_.publish(converter.toImageMsg());
+}
+
+//cls2id = {'green':0,'yellow':1,'red':2,'unknow':3}
+void TrafficLightsDetector::test(const cv::Mat image)
+{
+
+
+
+
+
+
+}
+
 
 /**********************************************************************/
 DataPrepare::DataPrepare(int argc, char **argv)
