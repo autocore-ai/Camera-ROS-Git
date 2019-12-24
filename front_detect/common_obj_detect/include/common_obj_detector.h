@@ -45,8 +45,6 @@ private:
     //ros subscriber/publisher
     bool init_ros(int argc,char** argv);
 private:
-    unsigned char status_encode();
-private:
     //
     std_msgs::Header frame_header_;
     //
