@@ -57,3 +57,5 @@ link_directories( ${MODEL_HELPER_DIR})
 
 add_executable(traffic_detect src/main.cpp src/Context.cpp  src/trafficlights_detector.cpp )
 target_link_libraries(traffic_detect  model_helper tensorflow-lite ${OpenCV_LIBS} ${catkin_LIBRARIES} )
+
+add_dependencies(traffic_detect ${catkin_EXPORTED_TARGETS})
