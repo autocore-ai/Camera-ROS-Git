@@ -1,4 +1,4 @@
-set(TENSORFLOW_DIR "/home/user/sc/tensorflow")  #change this to your own path!
+set(TENSORFLOW_DIR "/home/user/tensorflow")  #change this to your own path!
 include_directories(${TENSORFLOW_DIR})
 include_directories(${TENSORFLOW_DIR}/tensorflow/lite/tools/make/downloads/flatbuffers/include/)
 

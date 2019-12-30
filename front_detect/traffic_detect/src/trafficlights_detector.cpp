@@ -71,9 +71,6 @@ void TrafficLightsDetector::on_recv_frame(const sensor_msgs::Image &image_source
     set_current_frame(frame);
 
     frame_header_ = image_source.header;
-
-    //publish_debug_image(frame_);
-    //process_frame();
 }
 
 void TrafficLightsDetector::on_recv_signal_roi(const autoware_msgs::Signals::ConstPtr &extracted_pos)
@@ -162,30 +159,6 @@ void TrafficLightsDetector::determin_state(LightState in_current_state,
 	}
 
 } 
-
-
-//处理收到的待检测帧
-void TrafficLightsDetector::process_frame()
-{
-    /*
-    auto begin = std::chrono::system_clock::now();
-
-    preprocess_frame(frame_);
-    std::vector<uint8_t> input;
-    int width = mv1_.get_width();
-    int height = mv1_.get_height();
-    if (frame_model_input_.isContinuous())
-    {
-        input.insert(input.end(), frame_model_input_.data, frame_model_input_.data + width * height * 3);
-    }
-    int cls_id = mv1_.inference(input);
-    lights_color_ = static_cast<LightColor>(cls_id);
-
-    auto end = std::chrono::system_clock::now();
-    auto elsp = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
-    std::cout << "process_frame:" << elsp.count() << std::endl;
-    */
-}
 
 void TrafficLightsDetector::publish_traffic_light(std::vector<Context> contexts)
 {
@@ -287,132 +260,4 @@ void TrafficLightsDetector::publish_image(std::vector<Context> contexts)
     converter.encoding = sensor_msgs::image_encodings::BGR8;
     converter.image = result_image;
     image_detected_puber_.publish(converter.toImageMsg());
-}
-
-//cls2id = {'green':0,'yellow':1,'red':2,'unknow':3}
-void TrafficLightsDetector::test(const cv::Mat image)
-{
-
-
-
-
-
-
-}
-
-
-/**********************************************************************/
-DataPrepare::DataPrepare(int argc, char **argv)
-{
-    init(argc,argv);
-}
-
-DataPrepare::~DataPrepare()
-{
-
-}
-
-void DataPrepare::init(int argc, char **argv)
-{
-    ros::init(argc, argv, "DataPrepare");
-    ros::NodeHandle node;
-
-    image_raw_suber_ = node.subscribe("/image_raw", 1, &DataPrepare::on_recv_frame, this);
-    roi_signal_suber_ = node.subscribe("/roi_signal", 1, &DataPrepare::on_recv_signal_roi, this);
-    signal_state_array_suber_ = node.subscribe("tlr_result",1,&DataPrepare::on_recv_signal_state, this);
-}
-
-
-void DataPrepare::on_recv_signal_roi(const autoware_msgs::Signals::ConstPtr &extracted_pos)
-{
-    static ros::Time previous_timestamp;
-    // If frame has not been prepared, abort this callback
-    if (frame_.empty() ||
-        frame_header_.stamp == previous_timestamp)
-    {
-        std::cout << "No Image" << std::endl;
-        return;
-    }
-
-    // Acquire signal posotion on the image
-    Context::SetContexts(contexts_, extracted_pos, frame_.rows, frame_.cols);
-
-    // Recognize the color of the traffic light
-    for (Context &context : contexts_)
-    {
-        // for (unsigned int i = 0; i < contexts_.size(); i++) {
-        //   Context& context = contexts_.at(i);
-        if (context.topLeft.x > context.botRight.x)
-        {
-            continue;
-        }
-
-        //std::cout << "roi inside: " << cv::Rect(context.topLeft, context.botRight) << std::endl;
-        // extract region of interest from input image
-        cv::Mat roi = frame_(cv::Rect(context.topLeft, context.botRight)).clone();
-
-        //publish_debug_image(roi);
-        
-        string jpegname = "/home/user/sc_ws/src/test_data/tl_data2/" 
-                            + color_ + "/"
-                            + std::to_string(seq_++) +".png"; 
-        if(seq_<5000)
-        {
-            cv::imwrite(jpegname,roi);
-            cout<<"save roi img to "<<jpegname<<endl;
-            cout<<"img size:"<<roi.rows<<","<<roi.cols<<endl;
-        }
-    }
-
-    // Save timestamp of this frame so that same frame has never been process again
-    previous_timestamp = frame_header_.stamp;
-}
-
-void DataPrepare::on_recv_frame(const sensor_msgs::Image &image_source)
-{
-    cv_bridge::CvImagePtr cv_image = cv_bridge::toCvCopy(image_source, "bgr8");
-    frame_ = cv_image->image.clone();
-    frame_header_ = image_source.header;
-}
-
-void DataPrepare::on_recv_signal_state(const visualization_msgs::MarkerArray::ConstPtr & marker_array)
-{
-    cout<<"on_recv_signal_state"<<endl;
-    //marker_array含有3个,顺序为red,yellow,green
-    int index = 0;
-    std_msgs::ColorRGBA color_black;
-	color_black.r = 0.0f;
-	color_black.g = 0.0f;
-	color_black.b = 0.0f;
-	color_black.a = 1.0f;
-
-    for (visualization_msgs::Marker marker:marker_array->markers)
-    {
-        if(marker.color.r == 0.0 && marker.color.g == 0.0 && marker.color.b == 0.0f)
-        {
-            index++;
-            //cout<<"index="<<index<<endl;
-            continue;
-        }
-        
-        {
-            switch(index)
-            {
-            case 0:
-                cout<<"red"<<endl;
-                color_ = "red";
-                break;
-            case 1:
-                cout<<"yellow"<<endl;
-                color_ = "yellow";
-                break;
-            case 2:
-                cout<<"green"<<endl;
-                color_ = "green";
-                break;
-            }
-            break;
-        }
-        index++;
-    }
 }
