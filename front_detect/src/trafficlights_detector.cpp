@@ -21,16 +21,16 @@ void TrafficLightsDetector::set_current_frame(cv::Mat frame)
     frame_ = frame;
 }
 
-void TrafficLightsDetector::init(int argc, char **argv)
+void TrafficLightsDetector::init()
 {
-    init_ros(argc, argv);
+    init_ros();
 
     mv1_.init(model_path_);
 }
 
-bool TrafficLightsDetector::init_ros(int argc, char **argv)
+bool TrafficLightsDetector::init_ros()
 {
-    ros::init(argc, argv, "detect");
+    //ros::init(argc, argv, "detect");
     ros::NodeHandle node;
 
     bool ret = load_parameters();
@@ -48,13 +48,15 @@ bool TrafficLightsDetector::load_parameters()
 {
     ros::NodeHandle private_nh("~");
 
-    private_nh.param<std::string>("image_source_topic", image_source_topic_, "/image_raw");
+    ROS_INFO("****TrafficLightsDetector params****");
+
+    private_nh.param<std::string>("tl_image_source_topic", image_source_topic_, "/image_raw");
     ROS_INFO("Setting image_source_topic to %s", image_source_topic_.c_str());
 
-    private_nh.param<std::string>("image_detected_topic", image_detected_topic_, "");
+    private_nh.param<std::string>("tl_image_detected_topic", image_detected_topic_, "");
     ROS_INFO("Setting image_detected_topic to %s", image_detected_topic_.c_str());
 
-    private_nh.param<std::string>("model_path", model_path_, "");
+    private_nh.param<std::string>("tl_model_path", model_path_, "");
     ROS_INFO("Setting model_path to %s", model_path_.c_str());
 
     private_nh.param<int>("change_state_threshold", change_state_threshold_, 5);

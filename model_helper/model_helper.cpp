@@ -7,48 +7,26 @@
 #include <iostream>
 #include <ros/ros.h>
 
+static std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context = edgetpu::EdgeTpuManager::GetSingleton()->OpenDevice();
+
 /***********************************************************************/
 MobilenetV1::MobilenetV1()
 {
-
 }
 
 MobilenetV1::~MobilenetV1()
-{   
-    // must release in this order,otherwise it will crash．
+{
+    // must release before edgetpu_context release
     interpreter_.reset();
-    edgetpu_context_.reset();
 }
 
-void MobilenetV1::init(const string& model_path)
+void MobilenetV1::init(const string &model_path)
 {
     model_ = tflite::FlatBufferModel::BuildFromFile(model_path.c_str());
-    edgetpu_context_ =
-        edgetpu::EdgeTpuManager::GetSingleton()->OpenDevice();
-
-    interpreter_ =
-        BuildEdgeTpuInterpreter(*model_, edgetpu_context_.get());
+    interpreter_ =BuildEdgeTpuInterpreter(*model_, edgetpu_context.get());
 }
 
-std::unique_ptr<tflite::Interpreter> MobilenetV1::BuildEdgeTpuInterpreter(
-    const tflite::FlatBufferModel& model,
-    edgetpu::EdgeTpuContext* edgetpu_context) {
-  tflite::ops::builtin::BuiltinOpResolver resolver;
-  resolver.AddCustom(edgetpu::kCustomOp, edgetpu::RegisterCustomOp());
-  std::unique_ptr<tflite::Interpreter> interpreter;
-  if (tflite::InterpreterBuilder(model, resolver)(&interpreter) != kTfLiteOk) {
-    std::cerr << "Failed to build interpreter." << std::endl;
-  }
-  // Bind given context with interpreter.
-  interpreter->SetExternalContext(kTfLiteEdgeTpuContext, edgetpu_context);
-  interpreter->SetNumThreads(1);
-  if (interpreter->AllocateTensors() != kTfLiteOk) {
-    std::cerr << "Failed to allocate tensors." << std::endl;
-  }
-  return interpreter;
-}
-
-int MobilenetV1::inference(const std::vector<uint8_t>& input,const std::unique_ptr<tflite::Interpreter>& interpreter)
+int MobilenetV1::inference(const std::vector<uint8_t> &input, const std::unique_ptr<tflite::Interpreter> &interpreter)
 {
     uint8_t *input_tf = interpreter->typed_input_tensor<uint8_t>(0);
     std::memcpy(input_tf, input.data(), input.size());
@@ -91,13 +69,13 @@ int MobilenetV1::inference(const std::vector<uint8_t>& input,const std::unique_p
         else
         {
             std::cerr << "Tensor " << out_tensor->name
-                    << " has unsupported output type: " << out_tensor->type
-                    << std::endl;
+                      << " has unsupported output type: " << out_tensor->type
+                      << std::endl;
         }
     }
 
     //cout<<"output_data size:"<<output_data.size()<<endl;
-    for(auto data : output_data)
+    for (auto data : output_data)
     {
         //cout<<"prob:"<<data<<endl;
     }
@@ -109,58 +87,28 @@ int MobilenetV1::inference(const std::vector<uint8_t>& input,const std::unique_p
     return cls_idx;
 }
 
-int MobilenetV1::inference(const std::vector<uint8_t>& input)
+int MobilenetV1::inference(const std::vector<uint8_t> &input)
 {
-    return inference(input,interpreter_);
+    return inference(input, interpreter_);
 }
-
-
 
 /***********************************************************************************/
 MobilenetV1SSD::MobilenetV1SSD()
 {
-
 }
 
 MobilenetV1SSD::~MobilenetV1SSD()
 {
     interpreter_.reset();
-    edgetpu_context_.reset();
 }
 
-void MobilenetV1SSD::init(const string& model_path)
+void MobilenetV1SSD::init(const string &model_path)
 {
     model_ = tflite::FlatBufferModel::BuildFromFile(model_path.c_str());
-    edgetpu_context_ =
-        edgetpu::EdgeTpuManager::GetSingleton()->OpenDevice();
-
-    interpreter_ =
-        BuildEdgeTpuInterpreter(*model_, edgetpu_context_.get());
+    interpreter_ = BuildEdgeTpuInterpreter(*model_, edgetpu_context.get());
 }
 
-std::unique_ptr<tflite::Interpreter> MobilenetV1SSD::BuildEdgeTpuInterpreter(
-    const tflite::FlatBufferModel& model,
-    edgetpu::EdgeTpuContext* edgetpu_context) 
-{
-  tflite::ops::builtin::BuiltinOpResolver resolver;
-  resolver.AddCustom(edgetpu::kCustomOp, edgetpu::RegisterCustomOp());
-  std::unique_ptr<tflite::Interpreter> interpreter;
-  if (tflite::InterpreterBuilder(model, resolver)(&interpreter) != kTfLiteOk) 
-  {
-    std::cerr << "Failed to build interpreter." << std::endl;
-  }
-  // Bind given context with interpreter.
-  interpreter->SetExternalContext(kTfLiteEdgeTpuContext, edgetpu_context);
-  interpreter->SetNumThreads(1);
-  if (interpreter->AllocateTensors() != kTfLiteOk) 
-  {
-    std::cerr << "Failed to allocate tensors." << std::endl;
-  }
-
-  return interpreter;
-}
-
-vector<BBoxInfo> MobilenetV1SSD::inference(const std::vector<uint8_t>& input)
+vector<BBoxInfo> MobilenetV1SSD::inference(const std::vector<uint8_t> &input)
 {
     uint8_t *input_tf = interpreter_->typed_input_tensor<uint8_t>(0);
     std::memcpy(input_tf, input.data(), input.size());
@@ -168,7 +116,7 @@ vector<BBoxInfo> MobilenetV1SSD::inference(const std::vector<uint8_t>& input)
     interpreter_->Invoke();
 
     //std::vector<float> output_data;
-    vector< vector<float> > result;
+    vector<vector<float>> result;
     const auto &output_indices = interpreter_->outputs();
     const int num_outputs = output_indices.size();
 
@@ -212,32 +160,54 @@ vector<BBoxInfo> MobilenetV1SSD::inference(const std::vector<uint8_t>& input)
         else
         {
             std::cerr << "Tensor " << out_tensor->name
-                    << " has unsupported output type: " << out_tensor->type
-                    << std::endl;
+                      << " has unsupported output type: " << out_tensor->type
+                      << std::endl;
         }
     }
 
     vector<BBoxInfo> ret;
     int n = lround(result[3][0]); //box number
-    for (int i = 0; i < n; ++i) 
+    for (int i = 0; i < n; ++i)
     {
         int id = lround(result[1][i]);
         float score = result[2][i];
-        if (score < score_threshold_) 
+        if (score < score_threshold_)
             continue;
-        
+
         float ymax = std::max(static_cast<float>(0.0), result[0][4 * i]);
         float xmax = std::max(static_cast<float>(0.0), result[0][4 * i + 1]);
         float ymin = std::min(static_cast<float>(1.0), result[0][4 * i + 2]);
         float xmin = std::min(static_cast<float>(1.0), result[0][4 * i + 3]);
 
-        ret.emplace_back(BBoxInfo({xmin,ymin,xmax,ymax,id,score}));
+        ret.emplace_back(BBoxInfo({xmin, ymin, xmax, ymax, id, score}));
     }
 
-    for(auto b : ret)
+    for (auto b : ret)
     {
-       b.output();
+        b.output();
     }
 
     return ret;
 }
+
+std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(
+    const tflite::FlatBufferModel &model,
+    edgetpu::EdgeTpuContext *edgetpu_context)
+{
+    tflite::ops::builtin::BuiltinOpResolver resolver;
+    resolver.AddCustom(edgetpu::kCustomOp, edgetpu::RegisterCustomOp());
+    std::unique_ptr<tflite::Interpreter> interpreter;
+    if (tflite::InterpreterBuilder(model, resolver)(&interpreter) != kTfLiteOk)
+    {
+        std::cerr << "Failed to build interpreter." << std::endl;
+    }
+    // Bind given context with interpreter.
+    interpreter->SetExternalContext(kTfLiteEdgeTpuContext, edgetpu_context);
+    interpreter->SetNumThreads(1);
+    if (interpreter->AllocateTensors() != kTfLiteOk)
+    {
+        std::cerr << "Failed to allocate tensors." << std::endl;
+    }
+
+    return interpreter;
+};

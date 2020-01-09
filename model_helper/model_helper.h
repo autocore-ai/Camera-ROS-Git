@@ -5,19 +5,19 @@
 #include <string>
 #include <vector>
 #include <map>
-//#include <chrono>
 #include "edgetpu.h"
 #include "tensorflow/lite/builtin_op_data.h"
 #include "tensorflow/lite/kernels/register.h"
-#include <opencv2/core/mat.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <chrono> 
 #include <sys/time.h>
-using namespace std::chrono; 
+//using namespace std::chrono; 
 
 using namespace std;
-using namespace cv;
+//using namespace cv;
+
+std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(
+    const tflite::FlatBufferModel& model,
+    edgetpu::EdgeTpuContext* edgetpu_context);
 
 /*************************************************************************/
 class MobilenetV1
@@ -41,11 +41,11 @@ public:
 private: 
     int inference(const std::vector<uint8_t>& input,const std::unique_ptr<tflite::Interpreter>& interpreter);
 
-    std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
+    // std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
 private:
     std::unique_ptr<tflite::Interpreter> interpreter_;
     std::unique_ptr<tflite::FlatBufferModel> model_;
-    std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
+    //std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
 
     int width_=224;
     int height_=224;
@@ -89,7 +89,7 @@ public:
     }
 
 private:    
-    std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
+    // std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
 private:
     int width_=300;
     int height_=300;
@@ -99,7 +99,6 @@ private:
 
     std::unique_ptr<tflite::Interpreter> interpreter_;
     std::unique_ptr<tflite::FlatBufferModel> model_;
-    std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
+    //std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
 };
-
 #endif

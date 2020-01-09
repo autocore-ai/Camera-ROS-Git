@@ -1,10 +1,12 @@
 <launch>
 	<!-- declare arguments with default values -->
-    	<arg name="image_source_topic" default="/usb_cam/image_raw"/>
-        <arg name="test_img_dir" default="/home/user/sc_ws/src/test_data/common_obj_data"/>
-      
+    	<arg name="co_image_source_topic" default="/usb_cam/image_raw"/>
+        <arg name="tl_image_source_topic" default="/image_raw"/>
+        <arg name="test_img_dir" default="/home/user/test_data"/>
+
 	    <node pkg="localimg_test" type="localimg_test" name="localimg_test" args="" output="screen">
 	    <param name="test_img_dir" type="str" value="$(arg test_img_dir)"/>	
-	    <param name="image_source_topic" value="$(arg image_source_topic)"/>	
+	    <param name="co_image_source_topic" value="$(arg co_image_source_topic)"/>
+        <param name="tl_image_source_topic" value="$(arg tl_image_source_topic)"/>	
 	</node>
 </launch>

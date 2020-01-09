@@ -28,20 +28,26 @@ int main(int argc,char **argv)
     signal(SIGINT,signal_handle);
     signal(SIGTERM,signal_handle);
 
-    ros::init(argc, argv, "opencv_ros");
+    ros::init(argc, argv, "localimg_test");
 	ros::NodeHandle nh;
 
     ros::NodeHandle private_nh("~");
 
-    string img_src_topic;
-    private_nh.param<std::string>("image_source_topic", img_src_topic, "/usb_cam/image_raw");
-    ROS_INFO("Setting img_src_topic to %s",img_src_topic.c_str());
-
+    string co_image_source_topic;
+    string tl_image_source_topic;
     string test_img_dir;
+
+    private_nh.param<std::string>("co_image_source_topic", co_image_source_topic, "");
+    ROS_INFO("Setting co_image_source_topic to %s",co_image_source_topic.c_str());
+
+    private_nh.param<std::string>("tl_image_source_topic", tl_image_source_topic, "");
+    ROS_INFO("Setting tl_image_source_topic to %s",tl_image_source_topic.c_str());
+
     private_nh.param<std::string>("test_img_dir", test_img_dir, "");
     ROS_INFO("Setting test_img_dir to %s",test_img_dir.c_str());
     
-	ros::Publisher  camera_pub = nh.advertise<sensor_msgs::Image>("/usb_cam/image_raw", 1);
+	ros::Publisher  co_image_puber = nh.advertise<sensor_msgs::Image>("/usb_cam/image_raw", 1);
+    ros::Publisher  tl_image_puber = nh.advertise<sensor_msgs::Image>("/image_raw", 1);
 
     struct dirent *files_in_dir;  // Pointer for directory entry
     while(1)
@@ -62,7 +68,6 @@ int main(int argc,char **argv)
                 continue;
             }
             
-            //cout<<files_in_dir->d_name<<endl;
             string full_file_name = test_img_dir + '/' + files_in_dir->d_name;
             cout<<full_file_name<<endl;
 
@@ -80,13 +85,14 @@ int main(int argc,char **argv)
                 msg->header.frame_id = "camera";
                 msg->header.stamp.sec = ros::Time::now().sec;
                 msg->header.stamp.nsec = ros::Time::now().nsec;
-                camera_pub.publish(msg);
+                co_image_puber.publish(msg); //pub to common obj detector 
+                tl_image_puber.publish(msg); //pub to traffic lights detector
+
                 cout << "publish " << full_file_name << endl;
                 ros::spinOnce();
                 loop_rate.sleep();
             }
         }
-
 
         cout << "send done" <<endl;
 

@@ -5,15 +5,13 @@
 #include <image_transport/image_transport.h>
 #include "autoreg_msgs/obj.h"
 #include "autoreg_msgs/obj_array.h"
-
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <chrono>
+using namespace cv;
 
 CommonObjDetector::CommonObjDetector()
-{
-
-}
-
-CommonObjDetector::CommonObjDetector(string model_path)
 {
 
 }
@@ -28,16 +26,15 @@ void CommonObjDetector::set_current_frame(cv::Mat frame)
     frame_ = frame;
 }
 
-void CommonObjDetector::init(int argc,char** argv)
+void CommonObjDetector::init()
 {
-    init_ros(argc,argv);
+    init_ros();
 
     mv1ssd_.init(model_path_);
 } 
 
-bool CommonObjDetector::init_ros(int argc,char** argv)
+bool CommonObjDetector::init_ros()
 {
-    ros::init(argc,argv,"detect");
     ros::NodeHandle node;
 
     bool ret = load_parameters();
@@ -66,16 +63,18 @@ bool CommonObjDetector::load_parameters()
 {
     ros::NodeHandle private_nh("~");
     
-    private_nh.param<std::string>("image_source_topic", image_source_topic_, "/usb_cam/image_raw");
+    ROS_INFO("****CommonObjDetector params****");
+
+    private_nh.param<std::string>("co_image_source_topic", image_source_topic_, "/usb_cam/image_raw");
     ROS_INFO("Setting image_source_topic to %s", image_source_topic_.c_str());
      
-    private_nh.param<std::string>("image_detected_topic", image_detected_topic_, "/common_obj/image_detected");
+    private_nh.param<std::string>("co_image_detected_topic", image_detected_topic_, "/common_obj/image_detected");
     ROS_INFO("Setting image_detected_topic to %s", image_detected_topic_.c_str());
 
-    private_nh.param<std::string>("detected_objs_pubtopic", detected_objs_pubtopic_, "/common_obj/detected_objs");
+    private_nh.param<std::string>("co_detected_objs_pubtopic", detected_objs_pubtopic_, "/common_obj/detected_objs");
     ROS_INFO("Setting detected_objs_pubtopic to %s", detected_objs_pubtopic_.c_str());
 
-    private_nh.param<std::string>("model_path", model_path_, "");
+    private_nh.param<std::string>("co_model_path", model_path_, "");
     ROS_INFO("Setting model_path to %s", model_path_.c_str());
 
     return true;

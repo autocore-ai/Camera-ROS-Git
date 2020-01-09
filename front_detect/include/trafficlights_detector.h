@@ -25,7 +25,7 @@ public:
     ~TrafficLightsDetector();
 public:
     //
-    void init(int argc,char** argv);
+    void init();
 
     //
     void on_recv_frame(const sensor_msgs::Image& image_source);
@@ -34,7 +34,7 @@ public:
     void on_recv_signal_roi(const autoware_msgs::Signals::ConstPtr &extracted_pos);
 private:
     //ros subscriber/publisher
-    bool init_ros(int argc,char** argv);
+    bool init_ros();
     
     //read .launch file
     bool load_parameters();
@@ -63,7 +63,7 @@ private:
     int change_state_threshold_=5;
 private:    
     MobilenetV1 mv1_;
-
+    
     // The vector of data structure to save traffic light state, position, ...etc
     std::vector<Context> contexts_;
 private:  
@@ -91,5 +91,4 @@ private:
         {GREEN     , YELLOW    , RED       , UNDEFINED} /* | previous = UNDEFINED */
     };
 };
-
 #endif

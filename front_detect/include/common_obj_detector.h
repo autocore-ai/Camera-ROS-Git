@@ -21,14 +21,13 @@ class CommonObjDetector
 {
 public:
     CommonObjDetector();
-    CommonObjDetector(string model_path);
     ~CommonObjDetector();
 public:
     //
     void on_recv_frame(const sensor_msgs::Image& image_source);
 
     //
-    void init(int argc,char** argv);
+    void init();
     
     //
     void set_current_frame(cv::Mat frame);
@@ -43,7 +42,7 @@ private:
     bool load_parameters();
 
     //ros subscriber/publisher
-    bool init_ros(int argc,char** argv);
+    bool init_ros();
 private:
     //
     std_msgs::Header frame_header_;

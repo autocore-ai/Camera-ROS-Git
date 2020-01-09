@@ -1,0 +1,25 @@
+<launch>
+	<!-- common obj--> 
+    <arg name="co_image_source_topic" default="/usb_cam/image_raw"/>
+    <arg name="co_image_detected_topic" default="/common_obj/image_detected"/>
+    <arg name="co_model_path" default="/home/user/workspace/src/Camera-ROS-Git/mobilenet_ssd_v1_coco_quant_postprocess_edgetpu.tflite"/>
+	<arg name="co_detected_objs_pubtopic" default="/common_obj/detected_objs"/>
+    <!--traffic lights-->
+    <arg name="tl_image_source_topic" default="/image_raw"/>
+    <arg name="tl_image_detected_topic" default="tlr_superimpose_image"/>
+    <arg name="tl_model_path" default="/home/user/workspace/src/Camera-ROS-Git/trafficlights_mobilenetv1_edgetpu.tflite"/>
+    <arg name="change_state_threshold" default="5"/>
+
+    <node pkg="front_detect" type="front_detect" name="front_detect" args="" output="screen"> 
+    <!-- common obj-->
+    <param name="co_image_source_topic" value="$(arg co_image_source_topic)"/>
+    <param name="co_image_detected_topic" value="$(arg co_image_detected_topic)"/>
+    <param name="co_model_path" value="$(arg co_model_path)"/>
+	<param name="co_detected_objs_pubtopic" value="$(arg co_detected_objs_pubtopic)"/>
+    <!-- traffic lights-->
+    <param name="tl_image_source_topic" value="$(arg tl_image_source_topic)"/>
+    <param name="tl_image_detected_topic" value="$(arg tl_image_detected_topic)"/>
+    <param name="tl_model_path" value="$(arg tl_model_path)"/>
+    <param name="change_state_threshold" value="$(arg change_state_threshold)"/>
+    </node>
+</launch>
