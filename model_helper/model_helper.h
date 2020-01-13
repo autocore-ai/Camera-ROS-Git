@@ -40,12 +40,9 @@ public:
     }
 private: 
     int inference(const std::vector<uint8_t>& input,const std::unique_ptr<tflite::Interpreter>& interpreter);
-
-    // std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
 private:
     std::unique_ptr<tflite::Interpreter> interpreter_;
     std::unique_ptr<tflite::FlatBufferModel> model_;
-    //std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
 
     int width_=224;
     int height_=224;
@@ -87,9 +84,6 @@ public:
     {
         return height_;
     }
-
-private:    
-    // std::unique_ptr<tflite::Interpreter> BuildEdgeTpuInterpreter(const tflite::FlatBufferModel& model,edgetpu::EdgeTpuContext* edgetpu_context);
 private:
     int width_=300;
     int height_=300;
@@ -99,6 +93,5 @@ private:
 
     std::unique_ptr<tflite::Interpreter> interpreter_;
     std::unique_ptr<tflite::FlatBufferModel> model_;
-    //std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context_;
 };
 #endif
